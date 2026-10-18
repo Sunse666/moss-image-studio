@@ -142,10 +142,15 @@ The UI is a single HTML file and needs no frontend build step. The local Python 
    ```powershell
    ./setup.ps1
    ```
-3. Download MOSS-Image-SFT and the Turbo adapter (roughly 28.5 GB combined):
-   ```powershell
-   ./download.ps1
-   ```
+3. Choose what to download. Every option resumes and verifies SHA256 hashes:
+
+   | Command | Downloads | Size | Studio default |
+   |---|---|---:|---|
+   | `./download.ps1 -Model Lite` | Shared SFT text encoder, tokenizer and VAE + native INT8 Turbo 8-step transformer (no BF16 transformer) | ~22.4 GB | INT8 Turbo 8-step |
+   | `./download.ps1` | Full BF16 MOSS-Image-SFT + Rapid-MOSS Turbo 4-step adapter | ~28.5 GB | BF16 Turbo 4-step |
+   | `./download.ps1` then `./download.ps1 -Model INT8` | Both of the above | ~33.9 GB | INT8 Turbo 8-step (BF16 still selectable) |
+
+   `Lite` suits 4 GB laptops and small disks. Choose the full download if you want the original BF16 model; you can add or remove either one later.
 4. Start the studio:
    ```powershell
    ./studio.ps1
@@ -178,7 +183,7 @@ Generated image details and JSON sidecars now include synchronized wall-clock `s
 
 **Repeated-prompt acceleration:** Turbo now caches the exact prompt embeddings and attention mask locally, retaining their original precision. Reusing the same prompt with a different seed or image size can skip text-encoder inference without changing the encoding or sampler. New prompts still require encoding. Cache identity tracks the encoder/tokenizer files, encoding implementation and package versions. The cache is bounded to 32 entries / 128 MiB in `studio/prompt_cache/`; delete that folder to clear it. Embeddings can contain information about prompts: private mode bypasses all cache reads and writes. Image details report `prompt_cache` alongside stage timings.
 
-**Optional experimental INT8 model:** the model switcher also offers [INT8 Turbo 8-step](https://huggingface.co/toxicdog/MOSS-Image-SFT-Turbo-INT8-ConvRot). Install its separate 5.41 GB transformer with `./download.ps1 -Model INT8`; this SHA256-verifies the pinned checkpoint and preserves all existing models. It shares the original SFT text encoder, tokenizer, FP32 VAE and prompt cache. **BF16 SFT + Turbo 4-step stays the default.**
+**Optional experimental INT8 model:** the model switcher also offers [INT8 Turbo 8-step](https://huggingface.co/toxicdog/MOSS-Image-SFT-Turbo-INT8-ConvRot). Install its separate 5.41 GB transformer with `./download.ps1 -Model INT8`; this SHA256-verifies the pinned checkpoint and preserves all existing models. It shares the original SFT text encoder, tokenizer, FP32 VAE and prompt cache. When the INT8 checkpoint is installed the studio and API default to it (native compute when available); installs without it keep **BF16 SFT + Turbo 4-step** as the default. BF16 models stay selectable whenever their weights are present; a `Lite` install shows them as unavailable.
 
 This experimental profile follows the checkpoint author's **eight-step Euler/simple, shift 5, CFG 1** settings with no negative prompt. It does not apply the incompatible Rapid-MOSS four-step adapter. The compute selector offers **Native INT8 · Triton** and **Compatibility · BF16 decode**. Native mode streams INT8 block weights with FP32 scales, dynamically quantizes rotated activations, and executes INT8 tensor-core GEMMs with INT32 accumulation and BF16 outputs. Compatibility mode reconstructs BF16 layers before ordinary compute. Smaller storage does not guarantee faster generation or identical quality. Model details record the checkpoint revision, storage/compute formats, compatibility check, per-stage times and PyTorch VRAM peaks. Its timing calibration is separate from BF16 Turbo. Private requests bypass prompt caching for either model.
 
@@ -186,15 +191,18 @@ This experimental profile follows the checkpoint author's **eight-step Euler/sim
 
 | Profile | Steps | Actual total time | Sampled peak GPU VRAM | Peak GPU temperature |
 |---|---:|---:|---:|---:|
-| BF16 Turbo (saved baseline, default) | 4 | 73.77 s | 1,967 MiB | 87°C |
+| BF16 Turbo (saved baseline; default on full BF16 installs) | 4 | 73.77 s | 1,967 MiB | 87°C |
 | INT8 compatibility / BF16 decode | 8 | 79.35 s | 1,645 MiB | 88°C |
-| **Native INT8 / Triton (experimental)** | **8** | **62.15 s** | **1,489 MiB** | **89°C** |
+| Native INT8 / Triton, first version | 8 | 62.15 s | 1,489 MiB | 89°C |
+| **Native INT8 / Triton, streaming + GEMM tuning (default when installed)** | **8** | **46.91 s** | **1,961 MiB** | **87°C** |
 
-The earlier INT8 compatibility run used **16.4% less peak VRAM** but took **7.6% longer** than BF16 Turbo. Its prompt-cache hit took 0.0198 s; sampling took 54.66 s and VAE decoding 6.42 s. The actual portrait was visually reviewed and is clear, with different framing, hairstyle and background. These profiles use different checkpoints, samplers, step counts and VRAM budgets; this is not an isolated quantization benchmark or a guarantee of unchanged quality, lower heating or repeatable speed. Exactly one compatibility-mode INT8 image was generated; the saved BF16 reference was reused. BF16 Turbo remains the established default.
+The earlier INT8 compatibility run used **16.4% less peak VRAM** but took **7.6% longer** than BF16 Turbo. Its prompt-cache hit took 0.0198 s; sampling took 54.66 s and VAE decoding 6.42 s. The actual portrait was visually reviewed and is clear, with different framing, hairstyle and background. These profiles use different checkpoints, samplers, step counts and VRAM budgets; this is not an isolated quantization benchmark or a guarantee of unchanged quality, lower heating or repeatable speed. Exactly one compatibility-mode INT8 image was generated; the saved BF16 reference was reused. BF16 Turbo remains the default on installs without the INT8 checkpoint.
 
 **Native INT8 validation (19 October):** one additional native-mode image, same checkpoint, prompt, seed, dimensions, eight steps and cache hit: **62.15 seconds including loading**, **1,489 MiB sampled system-wide peak GPU VRAM** and **89°C peak GPU temperature**. Sampling took 42.84 s, prompt-cache lookup 0.0038 s and image decoding 5.29 s. All **2,016 block projection calls** used the explicit Comfy Kitchen Triton INT8 kernel, with zero BF16 GEMM fallbacks. Compiled PTX was checked for INT8 tensor-core MMA instructions. The portrait was visually reviewed and is similar in clarity and composition to the compatibility image, with different pixels; quality equivalence across prompts is unproven.
 
 Native mode was **21.7% faster** and used **9.5% less peak VRAM** than the saved 79.35-second compatibility run. This is a single-run comparison, not a typical-speed guarantee or a cooling improvement. The **62.15-second timer excludes 11.25 seconds of separate first-time kernel preparation/tuning** using three projection checks; no warmup image was generated. Tuning results are cached across disposable workers. First use or a different size/device may require compilation or tuning again.
+
+**Native INT8 streaming update (19 October):** profiling showed sampling was waiting on weight streaming, not INT8 math. WeeLLM had disabled transfer overlap, re-read every 113 MB block from SSD with one thread, and copied from zero-filled pageable buffers, which delayed GPU kernel launches. Native INT8 now has its own VRAM budget (`MOSS_INT8_VRAM_GB`, default 3.0) so blocks double-buffer, reads three blocks ahead (`MOSS_INT8_PREFETCH`, default 3), and reads raw weights into pinned memory for asynchronous copies (`MOSS_INT8_PINNED=0` disables). INT8 GEMMs use added `block_k=128` tile configurations, and q/k/v share one quantized activation. INT32 accumulation is exact, so these changes do not alter results: the same portrait, seed and prompt produced a **pixel-identical** image (0 differing pixels) in **46.91 s**, with sampling 26.82 s, image decoding 5.32 s, **1,961 MiB** sampled peak VRAM (higher, because more weights stay on the GPU) and **87°C** peak. This is one run with a cached prompt and already-tuned kernels, not a repeatable-speed or cooling guarantee. `MOSS_STREAM_TIMINGS=1` records per-block wait, transfer and compute times in image details.
 
 Install the optional native kernel package after normal setup:
 
@@ -227,7 +235,7 @@ Adapter source and instructions: [Rapid-MOSS 4-step adapter](https://huggingface
 
 **CUDA is unavailable.** Check the NVIDIA driver with `nvidia-smi`, close other GPU-heavy applications, and rerun `./setup.ps1`.
 
-**The selected model is missing.** Run `./download.ps1` or `./download.ps1 -Model Base`, then select the downloaded model in the studio.
+**The selected model is missing.** Run `./download.ps1 -Model Lite` (INT8), `./download.ps1` (full BF16) or `./download.ps1 -Model Base`, then select the downloaded model in the studio.
 
 **Generation runs out of memory.** Close other GPU applications, choose a smaller output size, and lower the `MOSS_VRAM_GB` budget if Windows needs more memory.
 

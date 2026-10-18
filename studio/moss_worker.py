@@ -19,9 +19,13 @@ def run(contexts):
     native = int8 and spec.get('int8_compute', 'bf16') == 'native'
     native_stats = {'linear_calls': 0, 'projections': 0, 'backend': 'comfy-kitchen-triton-int8', 'bf16_matmul_fallbacks': 0}
     turbo = bool(spec.get("turbo"))
+    lite_check = False
     if int8:
         int8_config.require_weights()
-        event(compatibility=int8_config.validate_checkpoint())
+        try:
+            event(compatibility=int8_config.validate_checkpoint())
+        except int8_config.OriginalHeadersMissing:
+            lite_check = True  # no BF16 shards: validate against the architecture after imports
         if turbo or spec['steps'] != 8 or spec['cfg'] != 1 or spec['negative']:
             raise ValueError('INT8 uses its own eight-step Euler/simple sampler, CFG 1 and no negative prompt')
     if turbo:
@@ -36,7 +40,8 @@ def run(contexts):
     local = Path(__file__).resolve().parent.parent / "models" / ("MOSS-Image-SFT" if int8 else model.split("/")[-1])
     if not (local / "model_index.json").exists():
         raise RuntimeError("Model not downloaded. Run download.ps1 first for " + model)
-    for component in ("text_encoder", "transformer", "vae"):
+    # INT8 brings its own transformer file; only shared SFT components are required.
+    for component in ("text_encoder", "vae") if int8 else ("text_encoder", "transformer", "vae"):
         folder = local / component
         indexes = list(folder.glob("*.safetensors.index.json"))
         if indexes:
@@ -48,6 +53,9 @@ def run(contexts):
     with timings.stage("imports"):
         import torch
         from weellm import WeeTextToImagePipeline
+    if lite_check:
+        event(compatibility=int8_config.validate_checkpoint(
+            expected=int8_config.architecture_shapes(local / "transformer")))
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA unavailable. Run setup.ps1 and check your NVIDIA driver.")
     timings.synchronize = torch.cuda.synchronize
@@ -56,7 +64,11 @@ def run(contexts):
               compute_dtype='BF16 base + FP32 adapter' if turbo else 'BF16 transformer', experimental=False)
     free, total = torch.cuda.mem_get_info()
     budget = min(float(os.getenv("MOSS_VRAM_GB", "2.5")), free / 2**30 - 0.5)
-    if int8:
+    if native:
+        # Native blocks stay INT8 (~113 MB each); unused VRAM keeps blocks
+        # resident instead of re-reading them from SSD on every step.
+        budget = min(float(os.getenv("MOSS_INT8_VRAM_GB", "3.0")), free / 2**30 - 0.5)
+    elif int8:
         budget = min(budget, 2.0)  # Headroom for expanded BF16 layers and ConvRot temporaries.
     if budget < 0.75:
         raise RuntimeError("Insufficient free VRAM. Close other GPU applications.")
@@ -67,7 +79,8 @@ def run(contexts):
     with timings.stage("model_load"):
         if native:
             from native_int8 import native_transformer
-            contexts.enter_context(native_transformer(int8_config.WEIGHTS, native_stats))
+            contexts.enter_context(native_transformer(int8_config.WEIGHTS, native_stats,
+                                                      prefetch_depth=int(os.getenv("MOSS_INT8_PREFETCH", "3"))))
         with (transformer_weights(int8_config.WEIGHTS) if int8 and not native else nullcontext()):
             pipe = WeeTextToImagePipeline.from_pretrained(
                 str(local), device="cuda", torch_dtype=torch.bfloat16,
@@ -107,12 +120,22 @@ def run(contexts):
         chunk_tokens = max(128, min(2048, int(os.getenv("MOSS_TURBO_CHUNK", "1024"))))
         cache_mb = max(0, min(256, int(os.getenv("MOSS_TURBO_CACHE_MB", "128"))))
         overhead += (cache_mb + 64) * 2**20
+        if native:
+            # No BF16 weight reconstruction or adapter cache. Measured 768x1024
+            # peak: 1,104 MiB allocated incl. 651 MB resident + one 113 MB block,
+            # i.e. ~340 MB activations for 3,155 tokens; keep ~1.5x margin.
+            overhead = (spec["width"] // 16) * (spec["height"] // 16) * 160 * 1024
         BaseTransformerStreamer._estimated_vram_overhead_bytes = overhead
         BaseTransformerStreamer._estimated_ram_overhead_bytes = overhead
         if int8:
             from int8_backend import generate
-            image = generate(pipe._pipeline, spec['prompt'], spec['width'], spec['height'],
-                             spec['seed'], progress, timings, encode_prompt)
+            from stream_timings import collect
+            with collect(os.getenv("MOSS_STREAM_TIMINGS") == "1") as stream_log:
+                image = generate(pipe._pipeline, spec['prompt'], spec['width'], spec['height'],
+                                 spec['seed'], progress, timings, encode_prompt)
+            if stream_log is not None:
+                event(stream_timings=stream_log.summary(
+                    getattr(pipe._pipeline.transformer, '_weellm_streamer', None)))
             event(checkpoint_repo=int8_config.MODEL, checkpoint_revision=int8_config.REVISION,
                   weight_format='INT8 ConvRot', compute_dtype='INT8 GEMM + INT32 accumulation, BF16 activations' if native else 'BF16 streamed dequantization',
                   backend='weellm-triton-int8-flow8' if native else 'weellm-int8-flow8', experimental=True,

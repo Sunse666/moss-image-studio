@@ -279,7 +279,7 @@ def run_image_job(job):
         "checkpoint_repo", "checkpoint_revision", "weight_format", "compute_dtype", "backend", "experimental",
         "scheduler", "flow_shift",
         "compatibility",
-        "int8_compute", "native_int8_stats",
+        "int8_compute", "native_int8_stats", "stream_timings",
         "gpu", "torch_version", "peak_allocated_mb", "peak_reserved_mb")})
 
 
@@ -351,9 +351,13 @@ def submit(spec):
         raise ValueError("MOSS supports text-to-image generation only")
     if mode not in GEN_MODES:
         raise ValueError("Unknown mode")
-    model = spec.get("model", engine.DEFAULT_MODEL)
+    # An explicit Turbo request implies its BF16 SFT base; otherwise use the install default.
+    model = spec.get("model") or (engine.SFT_MODEL if spec.get("turbo") else engine.default_model())
     if model not in engine.MODELS:
         raise ValueError("Unsupported MOSS model")
+    if model != engine.int8_config.MODEL and not engine.bf16_available(model):
+        raise ValueError("BF16 transformer for " + model.split("/")[-1] + " is not downloaded. Run ./download.ps1 -Model "
+                         + ("SFT" if model == engine.SFT_MODEL else "Base") + " or select INT8.")
     int8 = model == engine.int8_config.MODEL
     if int8 and not engine.int8_config.available():
         raise ValueError("Experimental INT8 checkpoint missing or incomplete. Run ./download.ps1 -Model INT8.")
@@ -376,9 +380,9 @@ def submit(spec):
         raise ValueError("Add at least one image to edit")
     mask = safe_name(spec["mask"]) if spec.get("mask") and mode == "edit" else None
     seed_in = int(spec.get("seed", -1))  # a fixed seed is shared by every prompt, so prompts compare fairly
-    turbo = bool(spec.get("turbo", model == engine.DEFAULT_MODEL and engine.turbo_available()))
+    turbo = bool(spec.get("turbo", model == engine.SFT_MODEL and engine.turbo_available()))
     if turbo:
-        if model != engine.DEFAULT_MODEL:
+        if model != engine.SFT_MODEL:
             raise ValueError("Turbo 4-step requires MOSS-Image-SFT; select SFT first")
         if not engine.turbo_available():
             raise ValueError("Turbo adapter missing or incomplete. Run ./download.ps1 -Model Turbo first.")
@@ -602,7 +606,8 @@ class Handler(BaseHTTPRequestHandler):
                     "jobs": jobs, "calib": load_calib(), "paused": QUEUE["paused"],
                     "cooling": max(0, round(COOL["until"] - time.time())), "cool_reason": COOL["reason"],
                     "private_mode": PRIVATE_MODE["on"], "engine_warm": ENGINE.running,
-                    "turbo": engine.turbo_available(), "int8": engine.int8_config.available(), "int8_native": engine.int8_config.native_available(), "upscaler": engine.upscaler_available(),
+                    "turbo": engine.turbo_available(), "int8": engine.int8_config.available(), "bf16": engine.bf16_available(),
+                    "default_model": engine.default_model(), "int8_native": engine.int8_config.native_available(), "upscaler": engine.upscaler_available(),
                     "assistant": bool(engine.llama_cli()), "settings": load_settings(),
                     "models": engine.MODELS, "samplers": ["euler"], "schedulers": ["default"]})
             if path == "/api/gallery":

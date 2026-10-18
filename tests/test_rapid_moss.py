@@ -28,6 +28,10 @@ class TinyModel(torch.nn.Module):
 
 class RapidTests(unittest.TestCase):
     def setUp(self):
+        # These tests cover a full BF16 install; adaptive defaults are tested separately.
+        for target, value in ((server.engine, 'default_model'), (server.engine, 'bf16_available')):
+            patcher = patch.object(target, value, return_value=server.engine.SFT_MODEL if value == 'default_model' else True)
+            patcher.start(); self.addCleanup(patcher.stop)
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)

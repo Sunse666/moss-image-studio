@@ -1,4 +1,4 @@
-param([ValidateSet('Default','SFT','Base','Turbo','INT8')][string]$Model = 'Default')
+param([ValidateSet('Default','SFT','Base','Turbo','INT8','Lite')][string]$Model = 'Default')
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 & .\.venv\Scripts\python.exe download.py $Model
