@@ -7,7 +7,6 @@
 [![MOSS-Image][model-shield]][model-url]
 [![MIT License][license-shield]][license-url]
 [![Stars][stars-shield]][stars-url]
-[![Views][views-shield]][views-url]
 
 <!-- PROJECT LOGO -->
 <br />
@@ -17,6 +16,12 @@
   </a>
 
   <h3 align="center">MOSS Image Studio</h3>
+
+  <p align="center">
+    <a href="https://hits.sh/github.com/sanketshinde3001/moss-image-studio/">
+      <img alt="Repository views" src="https://hits.sh/github.com/sanketshinde3001/moss-image-studio.svg?style=for-the-badge&label=Repository%20views&color=f0a14a">
+    </a>
+  </p>
 
   <p align="center">
     Generate images from text prompts with MOSS-Image on your Windows PC with an NVIDIA RTX GPU.
@@ -69,7 +74,6 @@
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#license">License</a></li>
     <li><a href="#contact">Contact</a></li>
-    <li><a href="#acknowledgments">Acknowledgments</a></li>
     <li><a href="#star-history">Star history</a></li>
   </ol>
 </details>
@@ -297,16 +301,6 @@ MOSS Image Studio code and scripts are available under the MIT License. See [`LI
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-<!-- ACKNOWLEDGMENTS -->
-## Acknowledgments
-
-* [MOSS-Image](https://github.com/OpenMOSS/MOSS-Image) by OpenMOSS.
-* [WeeLLM](https://github.com/Jit-Roy/WeeLLM), the model streaming project.
-* [Diffusers](https://github.com/huggingface/diffusers), [PyTorch](https://pytorch.org/), and the Hugging Face model hub.
-* README structure inspired by [Best-README-Template](https://github.com/othneildrew/Best-README-Template).
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
 <!-- CONTACT -->
 ## Contact
 
@@ -350,6 +344,4 @@ Questions, bug reports, and feature requests: [open an issue](https://github.com
 [license-url]: LICENSE
 [stars-shield]: https://img.shields.io/github/stars/sanketshinde3001/moss-image-studio?style=for-the-badge
 [stars-url]: https://github.com/sanketshinde3001/moss-image-studio/stargazers
-[views-shield]: https://hits.sh/github.com/sanketshinde3001/moss-image-studio.svg?style=for-the-badge&label=views&color=f0a14a
-[views-url]: https://hits.sh/github.com/sanketshinde3001/moss-image-studio/
 
