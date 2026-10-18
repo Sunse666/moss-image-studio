@@ -178,6 +178,25 @@ Generated image details and JSON sidecars now include synchronized wall-clock `s
 
 **Repeated-prompt acceleration:** Turbo now caches the exact prompt embeddings and attention mask locally, retaining their original precision. Reusing the same prompt with a different seed or image size can skip text-encoder inference without changing the encoding or sampler. New prompts still require encoding. Cache identity tracks the encoder/tokenizer files, encoding implementation and package versions. The cache is bounded to 32 entries / 128 MiB in `studio/prompt_cache/`; delete that folder to clear it. Embeddings can contain information about prompts: private mode bypasses all cache reads and writes. Image details report `prompt_cache` alongside stage timings.
 
+**Optional experimental INT8 model:** the model switcher also offers [INT8 Turbo 8-step](https://huggingface.co/toxicdog/MOSS-Image-SFT-Turbo-INT8-ConvRot). Install its separate 5.41 GB transformer with `./download.ps1 -Model INT8`; this SHA256-verifies the pinned checkpoint and preserves all existing models. It shares the original SFT text encoder, tokenizer, FP32 VAE and prompt cache. **BF16 SFT + Turbo 4-step stays the default.**
+
+This experimental profile follows the checkpoint author's **eight-step Euler/simple, shift 5, CFG 1** settings with no negative prompt. It does not apply the incompatible Rapid-MOSS four-step adapter. WeeLLM streams **INT8 ConvRot storage and reconstructs BF16 layers for compute**; this is not a native INT8-kernel backend. Smaller storage does not guarantee faster generation or identical quality. Model details record the checkpoint revision, storage/compute formats, compatibility check, per-stage times and PyTorch VRAM peaks. Its timing calibration is separate from BF16 Turbo. Private requests bypass prompt caching for either model.
+
+**Verified on RTX 3050 Laptop 4 GB:** one 768 × 1024 portrait, seed 42, CFG 1 and cached prompt. All 463 required tensor shapes and 252 quantization recipes passed compatibility checks before generation.
+
+| Profile | Steps | Actual total time | Sampled peak GPU VRAM | Peak GPU temperature |
+|---|---:|---:|---:|---:|
+| BF16 Turbo (saved baseline, default) | 4 | 73.77 s | 1,967 MiB | 87°C |
+| INT8 Turbo (experimental) | 8 | 79.35 s | 1,645 MiB | 88°C |
+
+INT8 used **16.4% less peak VRAM** but took **7.6% longer** in this comparison. Its prompt-cache hit took 0.0198 s; sampling took 54.66 s and VAE decoding 6.42 s. The actual portrait was visually reviewed and is clear, with different framing, hairstyle and background. These profiles use different checkpoints, samplers, step counts and VRAM budgets; this is not an isolated quantization benchmark or a guarantee of unchanged quality, lower heating or repeatable speed. Exactly one INT8 image was generated; the saved BF16 reference was reused. Keep BF16 Turbo for the faster verified default.
+
+<details>
+<summary>View the actual experimental INT8 portrait</summary>
+<p align="center"><img src="docs/int8-portrait.png" alt="Experimental MOSS INT8 Turbo portrait generated on RTX 3050 4 GB in 79.35 seconds using eight steps and 1645 MiB peak GPU VRAM" width="384"></p>
+</details>
+
+
 **Verified cache-hit run:** the same 768 × 1024 portrait prompt, seed 42 and four steps completed in **73.77 seconds including loading**, with **1,967 MiB system-wide sampled peak VRAM** (0.5-second polling) and **87°C peak GPU temperature**. Prompt lookup/copy took **0.0139 seconds**, compared with 18.86 seconds encoding previously. Overall time was 11.3% shorter than the prior 83.19-second run; startup and sampling were slower in this run, so the earlier ~64-second estimate was not achieved. Exactly one image was generated after a separate encoding-only cache warmup; preparation time is excluded from this cache-hit measurement. The output was pixel-identical to the previous optimized portrait. This is one measured comparison, not a typical-speed guarantee. Fresh prompts still require encoding.
 
 **Previous uncached run:** 768 × 1024, four steps, seed 42, CFG disabled: **83.19 seconds including loading**, **1,863 MiB sampled peak VRAM**, and **87°C peak GPU temperature**. The completed portrait was visually reviewed. This single result does not establish performance or quality for other prompts, sizes, or devices. The adapter's author documents quality trade-offs; Turbo does not produce the same image as normal sampling.

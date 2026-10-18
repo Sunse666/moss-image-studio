@@ -5,6 +5,8 @@ import sys
 import time
 from pathlib import Path
 from timing import StageTimings
+from contextlib import nullcontext
+import int8_config
 
 def event(**values):
     print("MOSS_EVENT " + json.dumps(values), flush=True)
@@ -13,7 +15,13 @@ def main():
     timings = StageTimings()
     spec = json.loads(sys.stdin.readline())
     model = spec["model"]
+    int8 = model == int8_config.MODEL
     turbo = bool(spec.get("turbo"))
+    if int8:
+        int8_config.require_weights()
+        event(compatibility=int8_config.validate_checkpoint())
+        if turbo or spec['steps'] != 8 or spec['cfg'] != 1 or spec['negative']:
+            raise ValueError('INT8 uses its own eight-step Euler/simple sampler, CFG 1 and no negative prompt')
     if turbo:
         import turbo_config
         turbo_config.require_adapter()
@@ -21,9 +29,9 @@ def main():
             raise ValueError("Turbo 4-step requires MOSS-Image-SFT")
         if spec["steps"] != 4 or spec["cfg"] != 1 or spec["negative"]:
             raise ValueError("Turbo requires four steps, CFG 1, and no negative prompt")
-    if model not in ("OpenMOSS-Team/MOSS-Image-SFT", "OpenMOSS-Team/MOSS-Image-Base"):
+    if model not in ("OpenMOSS-Team/MOSS-Image-SFT", "OpenMOSS-Team/MOSS-Image-Base", int8_config.MODEL):
         raise ValueError("Unsupported model")
-    local = Path(__file__).resolve().parent.parent / "models" / model.split("/")[-1]
+    local = Path(__file__).resolve().parent.parent / "models" / ("MOSS-Image-SFT" if int8 else model.split("/")[-1])
     if not (local / "model_index.json").exists():
         raise RuntimeError("Model not downloaded. Run download.ps1 first for " + model)
     for component in ("text_encoder", "transformer", "vae"):
@@ -41,13 +49,20 @@ def main():
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA unavailable. Run setup.ps1 and check your NVIDIA driver.")
     timings.synchronize = torch.cuda.synchronize
+    if not int8:
+        event(backend='weellm-bf16', weight_format='BF16',
+              compute_dtype='BF16 base + FP32 adapter' if turbo else 'BF16 transformer', experimental=False)
     free, total = torch.cuda.mem_get_info()
     budget = min(float(os.getenv("MOSS_VRAM_GB", "2.5")), free / 2**30 - 0.5)
+    if int8:
+        budget = min(budget, 2.0)  # Headroom for expanded BF16 layers and ConvRot temporaries.
     if budget < 0.75:
         raise RuntimeError("Insufficient free VRAM. Close other GPU applications.")
     torch.cuda.reset_peak_memory_stats()
     event(stage="Loading MOSS weights from SSD")
-    with timings.stage("model_load"):
+    if int8:
+        from int8_backend import transformer_weights
+    with timings.stage("model_load"), (transformer_weights(int8_config.WEIGHTS) if int8 else nullcontext()):
         pipe = WeeTextToImagePipeline.from_pretrained(
             str(local), device="cuda", torch_dtype=torch.bfloat16,
             vram_budget_gb=budget, ram_budget_gb=float(os.getenv("MOSS_RAM_GB", "2")),
@@ -64,8 +79,7 @@ def main():
         event(stage="Decoding image", eta=0)
     pipe._pipeline.progress_bar = progress
     event(stage="Encoding prompt")
-    if turbo:
-        from rapid_moss import generate
+    if turbo or int8:
         from prompt_cache import PromptCache, encoder_identity
         from weellm.models.transformers.base_transformer_streamer import BaseTransformerStreamer
         prompt_cache = None
@@ -89,13 +103,23 @@ def main():
         overhead += (cache_mb + 64) * 2**20
         BaseTransformerStreamer._estimated_vram_overhead_bytes = overhead
         BaseTransformerStreamer._estimated_ram_overhead_bytes = overhead
-        image = generate(pipe._pipeline, turbo_config.DIRECTORY, spec["prompt"],
-                         spec["width"], spec["height"], spec["seed"], progress,
-                         timings=timings, chunk_tokens=chunk_tokens, cache_mb=cache_mb,
-                         vram_budget_gb=budget, report=event, encode_prompt=encode_prompt)
+        if int8:
+            from int8_backend import generate
+            image = generate(pipe._pipeline, spec['prompt'], spec['width'], spec['height'],
+                             spec['seed'], progress, timings, encode_prompt)
+            event(checkpoint_repo=int8_config.MODEL, checkpoint_revision=int8_config.REVISION,
+                  weight_format='INT8 ConvRot', compute_dtype='BF16 streamed dequantization',
+                  backend='weellm-int8-flow8', experimental=True)
+        else:
+            from rapid_moss import generate
+            image = generate(pipe._pipeline, turbo_config.DIRECTORY, spec["prompt"],
+                             spec["width"], spec["height"], spec["seed"], progress,
+                             timings=timings, chunk_tokens=chunk_tokens, cache_mb=cache_mb,
+                             vram_budget_gb=budget, report=event, encode_prompt=encode_prompt)
         event(prompt_cache=prompt_cache.status if prompt_cache else
               ("private" if spec.get("private") else "disabled"))
-        event(turbo_adapter=turbo_config.REPO, turbo_revision=turbo_config.REVISION)
+        if turbo:
+            event(turbo_adapter=turbo_config.REPO, turbo_revision=turbo_config.REVISION)
     else:
         with timings.stage("generation"):
             image = pipe.generate(prompt=spec["prompt"], negative_prompt=spec["negative"],

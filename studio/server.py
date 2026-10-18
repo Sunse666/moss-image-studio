@@ -154,6 +154,8 @@ EDIT_OVERHEAD = 20  # seconds: reading the reference on the first step of an edi
 
 
 def calib_key(job):
+    if job.get("model") == engine.int8_config.MODEL:
+        return job["mode"] + "_int8flow8"
     speed = "_rapid4" if job.get("turbo") else "_fast" if job.get("fast") else ""
     return job["mode"] + speed
 
@@ -225,7 +227,7 @@ def plan_cooldown(job):
 
 PUBLIC_KEYS = ("id", "mode", "state", "prompt", "width", "height", "steps", "seed", "step", "total",
                "sec_per_it", "stage", "created", "started", "finished", "eta", "estimate", "output",
-               "error", "refs", "has_preview", "private", "turbo", "task", "source", "result", "engine")
+               "error", "refs", "has_preview", "private", "turbo", "task", "source", "result", "engine", "model")
 
 
 def public(job):
@@ -274,6 +276,9 @@ def run_image_job(job):
     finish(job, name, {k: job.get(k) for k in (
         "mode", "prompt", "negative", "width", "height", "steps", "cfg", "seed", "model",
         "turbo", "turbo_adapter", "turbo_revision", "sampler", "stage_seconds", "adapter_stats", "prompt_cache",
+        "checkpoint_repo", "checkpoint_revision", "weight_format", "compute_dtype", "backend", "experimental",
+        "scheduler", "flow_shift",
+        "compatibility",
         "gpu", "torch_version", "peak_allocated_mb", "peak_reserved_mb")})
 
 
@@ -348,6 +353,9 @@ def submit(spec):
     model = spec.get("model", engine.DEFAULT_MODEL)
     if model not in engine.MODELS:
         raise ValueError("Unsupported MOSS model")
+    int8 = model == engine.int8_config.MODEL
+    if int8 and not engine.int8_config.available():
+        raise ValueError("Experimental INT8 checkpoint missing or incomplete. Run ./download.ps1 -Model INT8.")
     text = (spec.get("prompt") or "").strip()
     prompts = split_prompts(text) if spec.get("bulk") else ([text] if text else [])
     if not prompts:
@@ -395,6 +403,9 @@ def submit(spec):
             if turbo:
                 job.update(steps=4, cfg=1.0, img_cfg=None, negative="", sampler="rapid-moss", scheduler="dataspace",
                            flow_shift=None, fast=False)
+            if int8:
+                job.update(steps=8, cfg=1.0, img_cfg=None, negative="", sampler="euler",
+                           scheduler="simple", flow_shift=5.0, fast=False)
             jobs.append(new_job(mode, private, ref_sizes=sizes, **job))
     return enqueue(jobs)
 
@@ -585,7 +596,7 @@ class Handler(BaseHTTPRequestHandler):
                     "jobs": jobs, "calib": load_calib(), "paused": QUEUE["paused"],
                     "cooling": max(0, round(COOL["until"] - time.time())), "cool_reason": COOL["reason"],
                     "private_mode": PRIVATE_MODE["on"], "engine_warm": ENGINE.running,
-                    "turbo": engine.turbo_available(), "upscaler": engine.upscaler_available(),
+                    "turbo": engine.turbo_available(), "int8": engine.int8_config.available(), "upscaler": engine.upscaler_available(),
                     "assistant": bool(engine.llama_cli()), "settings": load_settings(),
                     "models": engine.MODELS, "samplers": ["euler"], "schedulers": ["default"]})
             if path == "/api/gallery":

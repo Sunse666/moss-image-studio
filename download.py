@@ -5,7 +5,22 @@ import concurrent.futures
 from pathlib import Path
 from huggingface_hub import HfApi, snapshot_download
 from studio.downloads import fetch
-from studio import turbo_config
+from studio import turbo_config, int8_config
+
+
+def download_int8(workers):
+    root = int8_config.DIRECTORY
+    root.mkdir(parents=True, exist_ok=True)
+    marker = root / '.download-complete'
+    marker.unlink(missing_ok=True)
+    path = fetch(f'https://huggingface.co/{int8_config.MODEL}/resolve/{int8_config.REVISION}/{int8_config.FILENAME}',
+                 int8_config.WEIGHTS, workers=max(1, min(32, workers)))
+    with path.open('rb') as source:
+        digest = hashlib.file_digest(source, 'sha256').hexdigest()
+    if path.stat().st_size != int8_config.SIZE or digest != int8_config.SHA256:
+        raise RuntimeError('INT8 checkpoint checksum mismatch')
+    marker.write_text(int8_config.REVISION, encoding='utf-8')
+    print('Verified experimental INT8 Turbo 8-step. Shares existing SFT encoder/VAE; BF16 unchanged.')
 
 
 def download_turbo(workers):
@@ -52,10 +67,13 @@ def download_model(variant, workers, parallel_files):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('model', nargs='?', choices=['Default', 'SFT', 'Base', 'Turbo'], default='Default')
+    parser.add_argument('model', nargs='?', choices=['Default', 'SFT', 'Base', 'Turbo', 'INT8'], default='Default')
     parser.add_argument('--workers', type=int, default=32)
     parser.add_argument('--parallel-files', type=int, default=4)
     args = parser.parse_args()
+    if args.model == 'INT8':
+        download_int8(args.workers)
+        return
     if args.model != 'Turbo':
         download_model('SFT' if args.model == 'Default' else args.model, args.workers, args.parallel_files)
     if args.model in ('Default', 'Turbo'):

@@ -42,5 +42,17 @@ vm.runInNewContext(`
   applyPreset('turbo');
   refreshTurbo(false);
   assert.equal($('#turbo').checked, false);
+  $('#model').value = 'toxicdog/MOSS-Image-SFT-Turbo-INT8-ConvRot';
+  refreshTurbo();
+  syncPreset();
+  assert.equal($('#turbo').checked, false);
+  assert.equal(+$('#steps').value, 8);
+  assert.equal(+$('#cfg').value, 1);
+  assert.equal($('#steps').disabled, true);
+  $('#model').value = 'OpenMOSS-Team/MOSS-Image-SFT';
+  refreshTurbo(true); applyPreset('turbo');
+  assert.equal($('#turbo').checked, true);
+  assert.equal(+$('#steps').value, 4);
+  assert.equal($('#steps').disabled, false);
 `, {assert});
 console.log('Turbo UI state transitions passed');

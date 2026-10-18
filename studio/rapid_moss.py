@@ -182,6 +182,12 @@ def generate(pipe, adapter_root, prompt, width, height, seed, progress, *,
         if report:
             report(adapter_stats=adapter.stats.copy())
     del embeds, mask
+    return decode_latents(pipe, latents, timings)
+
+
+@torch.no_grad()
+def decode_latents(pipe, latents, timings=None):
+    stage = timings.stage if timings else lambda name: nullcontext()
     vae = pipe.vae
     z = latents.to(vae.dtype)
     bn, eps = vae.bn, vae.config.batch_norm_eps

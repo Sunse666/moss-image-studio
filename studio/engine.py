@@ -5,10 +5,11 @@ import subprocess
 import sys
 import threading
 import turbo_config
+import int8_config
 
 STUDIO = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(STUDIO)
-MODELS = ["OpenMOSS-Team/MOSS-Image-SFT", "OpenMOSS-Team/MOSS-Image-Base"]
+MODELS = ["OpenMOSS-Team/MOSS-Image-SFT", "OpenMOSS-Team/MOSS-Image-Base", int8_config.MODEL]
 DEFAULT_MODEL = MODELS[0]
 
 class Cancelled(Exception):
