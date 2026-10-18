@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+models/
+outputs/
+inputs/
+logs/
+studio/tmp/
+studio/settings.json
+studio/calibration.json
+studio/library.json
+.downloads/
