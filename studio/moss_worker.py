@@ -11,6 +11,14 @@ def event(**values):
 def main():
     spec = json.loads(sys.stdin.readline())
     model = spec["model"]
+    turbo = bool(spec.get("turbo"))
+    if turbo:
+        import turbo_config
+        turbo_config.require_adapter()
+        if model != "OpenMOSS-Team/MOSS-Image-SFT":
+            raise ValueError("Turbo 4-step requires MOSS-Image-SFT")
+        if spec["steps"] != 4 or spec["cfg"] != 1 or spec["negative"]:
+            raise ValueError("Turbo requires four steps, CFG 1, and no negative prompt")
     if model not in ("OpenMOSS-Team/MOSS-Image-SFT", "OpenMOSS-Team/MOSS-Image-Base"):
         raise ValueError("Unsupported model")
     local = Path(__file__).resolve().parent.parent / "models" / model.split("/")[-1]
@@ -51,9 +59,21 @@ def main():
         event(stage="Decoding image", eta=0)
     pipe._pipeline.progress_bar = progress
     event(stage="Encoding prompt")
-    image = pipe.generate(prompt=spec["prompt"], negative_prompt=spec["negative"],
-                          width=spec["width"], height=spec["height"],
-                          num_inference_steps=spec["steps"], guidance_scale=spec["cfg"], seed=spec["seed"])
+    if turbo:
+        from rapid_moss import generate
+        from weellm.models.transformers.base_transformer_streamer import BaseTransformerStreamer
+        # The custom sampler bypasses WeeBasePipeline.__call__; retain its
+        # conservative activation headroom used by streaming cache decisions.
+        overhead = (spec["width"] // 16) * (spec["height"] // 16) * 500 * 1024
+        BaseTransformerStreamer._estimated_vram_overhead_bytes = overhead
+        BaseTransformerStreamer._estimated_ram_overhead_bytes = overhead
+        image = generate(pipe._pipeline, turbo_config.DIRECTORY, spec["prompt"],
+                         spec["width"], spec["height"], spec["seed"], progress)
+        event(turbo_adapter=turbo_config.REPO, turbo_revision=turbo_config.REVISION)
+    else:
+        image = pipe.generate(prompt=spec["prompt"], negative_prompt=spec["negative"],
+                              width=spec["width"], height=spec["height"],
+                              num_inference_steps=spec["steps"], guidance_scale=spec["cfg"], seed=spec["seed"])
     temporary = Path(spec["output"] + ".part")
     image.save(temporary, format="PNG")
     temporary.replace(spec["output"])

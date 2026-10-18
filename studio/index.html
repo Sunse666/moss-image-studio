@@ -248,7 +248,7 @@ textarea.bulk { min-height: 220px; }
   .lb { grid-template-columns: 1fr; grid-template-rows: 60vh auto; overflow-y: auto; }
 }
 /* Unsupported inference features are removed from the visible workflow. */
-.edit-only, [data-p="turbo"], #turboRow, #schedRow, #turboNote, #fastTh,
+.edit-only, #schedRow, #fastTh,
 #typeFilter [data-v="edit"], #typeFilter [data-v="upscale"], #lbEdit, #lbUpscale, #lbUp2, #lbUp4 { display:none !important; }
 </style>
 </head>
@@ -289,11 +289,12 @@ textarea.bulk { min-height: 220px; }
       <div class="field">
         <div class="label">Speed</div>
         <div class="seg" id="presets">
-          <button data-p="turbo" class="on" title="4-step LoRA at 768 px. Best for iterating.">⚡ Turbo</button>
+          <button data-p="turbo" disabled title="Download the Turbo adapter to enable this SFT preset">⚡ Turbo 4-step</button>
           <button data-p="draft" title="Full model at 512 px, 12 steps">Draft</button>
           <button data-p="balanced" title="Full model at 768 px, 30 steps">Balanced</button>
           <button data-p="quality" title="Full model at 1024 px, 50 steps. Slow, for finals.">Quality</button>
         </div>
+        <small id="turboStatus">Turbo setup: run download.ps1 -Model Turbo. Hardware validation pending.</small>
         <div class="presetrow">
           <select id="myPresets" title="Your saved settings"><option value="">My presets</option></select>
           <button class="iconbtn" id="savePreset" title="Save current settings as a preset">Save</button>
@@ -317,13 +318,13 @@ textarea.bulk { min-height: 220px; }
       <details>
         <summary>More settings</summary>
         <div class="inner">
-          <label class="toggle" id="turboRow" title="Alibaba's Fun-Acc distillation LoRA. Runs 4 steps at CFG 1."><span>Turbo LoRA</span>
-            <span class="switch"><input type="checkbox" id="turbo" checked><span></span></span></label>
+          <label class="toggle locked" id="turboRow" title="Rapid-MOSS: four data-space steps, SFT only, no CFG or negative prompt"><span>Turbo 4-step</span>
+            <span class="switch"><input type="checkbox" id="turbo"><span></span></span></label>
           <div class="field" id="schedRow" title="Matched shifts the LoRA's schedule to your output size. It looked sharper in tests.">
             <div class="label">Turbo schedule</div>
             <div class="seg" id="turboSched"><button data-v="matched" class="on">Matched to size</button><button data-v="trained">Original</button></div>
           </div>
-          <div class="lockednote hidden" id="turboNote">Turbo uses 4 steps at CFG 1. Greyed-out settings are skipped.</div>
+          <div class="lockednote hidden" id="turboNote">Turbo uses four Rapid-MOSS steps. CFG, negative prompt, and ordinary sampler settings are skipped.</div>
 
           <div class="field turbo-lock">
             <div class="label">Negative prompt</div>
@@ -548,16 +549,31 @@ const PRESETS = {
 
 const S = {
   mode: "gen", aspect: "1:1", base: 512, refMax: 1024, refs: [], mask: null, turboSched: "matched",
-  private: false, turboOk: false, calib: {}, jobs: [], gallery: [], privItems: [], polled: false,
+  private: false, turboReady: false, turboOk: false, calib: {}, jobs: [], gallery: [], privItems: [], polled: false,
   lb: null, view: null, cmp: null, seedLocked: false, preset: "turbo",
   filter: { q: "", type: "all", when: "any" }, selecting: false, sel: new Set(),
   library: { presets: {}, favorites: [] }, assistJobs: new Set(), paused: false,
 };
 
 // ---------- presets ----------
+function refreshTurbo(ready = S.turboReady) {
+  S.turboReady = ready;
+  S.turboOk = ready && $("#model").value === "OpenMOSS-Team/MOSS-Image-SFT";
+  const button = $('#presets [data-p="turbo"]');
+  button.disabled = !S.turboOk;
+  $("#turbo").disabled = !S.turboOk;
+  button.title = S.turboOk ? "Four Rapid-MOSS steps with WeeLLM streaming; performance not yet measured" : ready ? "Select MOSS-Image SFT to use Turbo" : "Run download.ps1 -Model Turbo to install the adapter";
+  $("#turboRow").classList.toggle("locked", !S.turboOk);
+  $("#turboStatus").textContent = S.turboOk ? "Turbo adapter ready · four steps · hardware validation pending" : ready ? "Turbo requires MOSS-Image SFT" : "Turbo setup: run download.ps1 -Model Turbo";
+  if (!S.turboOk && $("#turbo").checked) applyPreset("draft");
+}
 function applyPreset(k) {
   const p = PRESETS[k]; S.preset = k;
+  if (p.turbo && !S.turboOk) return;
+  const wasTurbo = $("#turbo").checked;
   $("#turbo").checked = !!p.turbo && S.turboOk;
+  if (p.turbo) $("#cfg").value = 1;
+  else if (wasTurbo) $("#cfg").value = 3;
   S.base = p.base; S.refMax = p.refMax; $("#steps").value = p.steps; $("#fast").checked = p.fast; $("#fastThreshold").value = p.th;
   $("#preview").checked = p.preview;
   $$("#bases button").forEach(b => b.classList.toggle("on", b.dataset.b == p.base));
@@ -566,12 +582,13 @@ function applyPreset(k) {
 }
 function syncPreset() {
   const turbo = $("#turbo").checked;
+  if (turbo) { $("#steps").value = 4; $("#cfg").value = 1; }
   const hit = Object.keys(PRESETS).find(k => { const p = PRESETS[k]; return S.base === p.base && S.refMax === p.refMax && turbo === !!p.turbo && (turbo || (+$("#steps").value === p.steps && $("#fast").checked === p.fast)); });
   S.preset = hit || null;
   $$("#presets button").forEach(b => b.classList.toggle("on", b.dataset.p === hit));
   $$(".turbo-lock").forEach(el => el.classList.toggle("locked", turbo));
   $("#turboNote").classList.toggle("hidden", !turbo);
-  $("#schedRow").classList.toggle("hidden", !turbo);
+  $("#schedRow").classList.add("hidden");
 }
 function snapshot() {
   return { model: $("#model").value, base: S.base, aspect: S.aspect, refMax: S.refMax, cw: +$("#cw").value, ch: +$("#ch").value, steps: +$("#steps").value,
@@ -581,6 +598,7 @@ function snapshot() {
 }
 function restore(p) {
   if (p.model) $("#model").value = p.model;
+  refreshTurbo();
   S.base = p.base; S.refMax = p.refMax || 768; if (p.aspect) setAspect(p.aspect);
   $("#cw").value = p.cw || 1024; $("#ch").value = p.ch || 1024; $("#steps").value = p.steps; $("#cfg").value = p.cfg; $("#imgCfg").value = p.imgCfg || 0;
   $("#sampler").value = p.sampler || "euler"; $("#scheduler").value = p.scheduler || "default"; $("#shift").value = p.shift || 0;
@@ -660,10 +678,11 @@ function estimate() {
   let memMp = mp;
   if (S.mode === "edit") refSizes().forEach(([a, b]) => memMp += a * b / 1048576);
   const turbo = $("#turbo").checked;
-  const k = S.calib[S.mode + (turbo ? "_turbo" : $("#fast").checked ? "_fast" : "")] || 80;
+  const k = S.calib[S.mode + (turbo ? "_rapid4" : $("#fast").checked ? "_fast" : "")] || 80;
   return { secs: k * Math.pow(mp, 1.2) * (turbo ? 4 : +$("#steps").value) + 30 + (S.mode === "edit" ? 20 : 0), mp: memMp };
 }
 function update() {
+  syncPreset();
   const [w, h] = outSize();
   $("#sizeVal").textContent = `${w} × ${h}`;
   $("#customSize").classList.toggle("hidden", S.base !== "custom");
@@ -680,6 +699,7 @@ function update() {
   syncPreset();
   const { secs, mp } = estimate(), n = +$("#batch").value, count = S.bulk ? promptList().length : 1, total = Math.max(1, count) * n;
   $("#est").textContent = total > 1 ? `≈ ${fmtDur(secs)} each · ${fmtDur(secs * total)} total` : "≈ " + fmtDur(secs);
+  if ($("#turbo").checked && !S.calib.gen_rapid4) $("#est").textContent = "Turbo timing pending first run";
   $("#goLabel").textContent = (S.mode === "edit" ? "Edit" : "Generate") + (total > 1 ? ` ${total}` : "");
   $("#bulkInfo").classList.toggle("hidden", !S.bulk);
   if (S.bulk) $("#bulkInfo").innerHTML = count ? `<b>${count}</b> prompt${count > 1 ? "s" : ""}${n > 1 ? ` × ${n} variations` : ""} · each uses the settings below` + (total > 100 ? ` · <span style="color:var(--danger)">max 100 images at once</span>` : count > 50 ? ` · <span style="color:var(--danger)">max 50 prompts at once</span>` : "") : "Put an empty line between prompts";
@@ -874,7 +894,7 @@ async function poll() {
     const st = await api("/api/state");
     S.calib = st.calib; S.paused = st.paused; S.cooling = st.cooling; S.coolReason = st.cool_reason; S.assistOk = st.assistant; S.upscaleOk = st.upscaler;
     applyPrivateUI(!!st.private_mode);
-    if (!st.turbo && S.turboOk) { S.turboOk = false; $("#turbo").checked = false; $("#turboRow").classList.add("locked"); $('#presets [data-p="turbo"]').disabled = true; if (S.preset === "turbo") applyPreset("draft"); }
+    refreshTurbo(!!st.turbo);
     if (!$("#sampler").options.length) {
       $("#sampler").innerHTML = st.samplers.map(s => `<option>${s}</option>`).join("");
       $("#scheduler").innerHTML = st.schedulers.map(s => `<option>${s}</option>`).join("");
@@ -1022,6 +1042,7 @@ function useForEdit(g, kind = "gallery") {
 function reuse(g, newSeed) {
   const m = g.meta;
   if (m.model) $("#model").value = m.model; if (!m.prompt) return toast("No settings saved for this image");
+  refreshTurbo();
   if (m.mode === "upscale") return toast("Reuse works on generated or edited images");
   setMode(m.mode === "edit" ? "edit" : "gen");
   $("#prompt").value = m.prompt; $("#negative").value = m.negative || "";
@@ -1166,6 +1187,11 @@ buildStatic();
 });
 $("#turbo").checked = false;
 $("#cfg").value = 3;
+$("#model").onchange = () => { refreshTurbo(); update(); };
+$("#turbo").onchange = () => {
+  if (!$("#turbo").checked) { $("#cfg").value = 3; $("#steps").value = 12; }
+  update();
+};
 
 $("#tabs").onclick = e => { const b = e.target.closest("button"); if (b) setMode(b.dataset.mode); };
 $("#aspects").onclick = e => { const b = e.target.closest("button"); if (!b) return; if (S.base === "custom") { S.base = 1024; $$("#bases button").forEach(x => x.classList.toggle("on", x.dataset.b === "1024")); } setAspect(b.dataset.a); };

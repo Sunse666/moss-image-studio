@@ -154,7 +154,7 @@ EDIT_OVERHEAD = 20  # seconds: reading the reference on the first step of an edi
 
 
 def calib_key(job):
-    speed = "_turbo" if job.get("turbo") else "_fast" if job.get("fast") else ""
+    speed = "_rapid4" if job.get("turbo") else "_fast" if job.get("fast") else ""
     return job["mode"] + speed
 
 
@@ -297,6 +297,7 @@ def run_image_job(job):
         raise Cancelled()
     finish(job, name, {k: job.get(k) for k in (
         "mode", "prompt", "negative", "width", "height", "steps", "cfg", "seed", "model",
+        "turbo", "turbo_adapter", "turbo_revision", "sampler",
         "gpu", "torch_version", "peak_allocated_mb", "peak_reserved_mb")})
 
 
@@ -385,7 +386,12 @@ def submit(spec):
         raise ValueError("Add at least one image to edit")
     mask = safe_name(spec["mask"]) if spec.get("mask") and mode == "edit" else None
     seed_in = int(spec.get("seed", -1))  # a fixed seed is shared by every prompt, so prompts compare fairly
-    turbo = bool(spec.get("turbo")) and engine.turbo_available()
+    turbo = bool(spec.get("turbo"))
+    if turbo:
+        if model != engine.DEFAULT_MODEL:
+            raise ValueError("Turbo 4-step requires MOSS-Image-SFT; select SFT first")
+        if not engine.turbo_available():
+            raise ValueError("Turbo adapter missing or incomplete. Run ./download.ps1 -Model Turbo first.")
     # anything made from a private image stays private
     private = PRIVATE_MODE["on"] or bool(spec.get("private")) or any(is_private_file(r) for r in refs + [mask])
     ref_max = int(spec.get("ref_max", 1024))
@@ -411,7 +417,7 @@ def submit(spec):
                 ref_max=ref_max, turbo=turbo,
                 turbo_schedule="trained" if spec.get("turbo_schedule") == "trained" else "matched")
             if turbo:
-                job.update(steps=4, cfg=1.0, img_cfg=None, negative="", sampler="euler", scheduler="default",
+                job.update(steps=4, cfg=1.0, img_cfg=None, negative="", sampler="rapid-moss", scheduler="dataspace",
                            flow_shift=None, fast=False)
             jobs.append(new_job(mode, private, ref_sizes=sizes, **job))
     return enqueue(jobs)

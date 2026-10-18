@@ -33,6 +33,8 @@
     <br />
     <a href="#usage">Usage</a>
     &middot;
+    <a href="#optional-turbo-4-step-setup">Turbo 4-step</a>
+    &middot;
     <a href="#benchmark">Benchmark</a>
     &middot;
     <a href="#how-it-works">How it works</a>
@@ -57,6 +59,7 @@
       <ul>
         <li><a href="#prerequisites">Prerequisites</a></li>
         <li><a href="#installation">Installation</a></li>
+        <li><a href="#optional-turbo-4-step-setup">Turbo 4-step setup</a></li>
         <li><a href="#troubleshooting">Troubleshooting</a></li>
       </ul>
     </li>
@@ -93,6 +96,7 @@ This project is for people who want to try MOSS image generation on a personal R
 * Choose the official MOSS-Image-SFT or MOSS-Image-Base model.
 * Set prompts, negative prompts, seeds, image variations, styles, and aspect ratios.
 * Select Draft, Balanced, or Quality presets, or customize output size and steps.
+* Optional **Turbo 4-step** adapter for SFT, using Rapid-MOSS with WeeLLM streaming. GPU validation is pending.
 
 **Local image workflow**
 * Queue prompts and follow sampling progress; pause, reorder, or cancel queued jobs.
@@ -156,6 +160,22 @@ To download MOSS-Image-Base as well, run `./download.ps1 -Model Base` and select
 
 The model weights are not stored in this GitHub repository. They are downloaded from the official [MOSS-Image-SFT model card](https://huggingface.co/OpenMOSS-Team/MOSS-Image-SFT) and retain their own license terms.
 
+### Optional Turbo 4-step setup
+
+First download the normal SFT model, then install the additional Rapid-MOSS adapter (about **1.23 GB**):
+
+```powershell
+./download.ps1 -Model Turbo
+```
+
+Select **MOSS-Image SFT** and **Turbo 4-step** in the studio. The adapter download resumes and checks SHA256 hashes against a pinned upstream revision. An incomplete download leaves Turbo disabled. There are no automatic downloads during generation.
+
+Turbo runs the adapter's dedicated four-step data-space sampler, with no CFG, negative prompt, or ordinary Euler schedule. The original BF16 model still streams through WeeLLM. FP32 LoRA weights remain unmerged on disk and transfer one projection at a time; FP32 activation calculations are chunked to limit temporary memory. Time embeddings and modulation calculations use FP32, including after resident weights reload. Text-encoder eviction and tiled VAE decoding remain enabled. The default VRAM budget stays at 2.5 GB.
+
+**Status: integration checked with CPU tensor tests only. Turbo has not generated an image on the RTX 3050 yet.** Its actual speed, peak VRAM, temperature, and image quality are unverified. The adapter's author documents quality trade-offs; this mode does not promise identical quality or a one-minute runtime. Start at the 768 px Turbo preset when evaluating it later; upstream quality checks focused on approximately one-megapixel images.
+
+Adapter source and instructions: [Rapid-MOSS 4-step adapter](https://huggingface.co/darask0/MOSS-Image_4-step_adapter_lora). This mode uses SFT; it does not support the Base model or a quantized DiT.
+
 ### Troubleshooting
 
 **CUDA is unavailable.** Check the NVIDIA driver with `nvidia-smi`, close other GPU-heavy applications, and rerun `./setup.ps1`.
@@ -195,6 +215,7 @@ One portrait image was generated on an RTX 3050 Laptop GPU with 4 GB VRAM. It us
 | Task | Settings | Elapsed time | Sampled system-wide peak VRAM |
 |---|---|---:|---:|
 | Portrait generation | 768 × 1024, 30 steps | 15 min 39 sec, including model loading | 1,823 MiB (about 1.78 GiB) |
+| Turbo 4-step | Rapid-MOSS adapter, SFT, four CFG-free steps | GPU test pending | GPU test pending |
 
 This is one measured run on one laptop. Speed and temperature vary with the driver, background GPU use, available RAM, SSD, and cooling. No landscape or product benchmark was completed. Results do not predict future performance after optimization.
 
@@ -277,6 +298,8 @@ No. The download script fetches them from Hugging Face. The weights have separat
 - [x] MOSS-Image-SFT and MOSS-Image-Base model selection
 - [x] Local text-to-image studio with gallery and generation queue
 - [x] Low VRAM generation through WeeLLM model streaming
+- [x] Optional Rapid-MOSS four-step sampler with disk-backed FP32 adapters
+- [ ] Validate Turbo images, speed, peak VRAM, and temperatures on the RTX 3050 4 GB
 - [ ] Evaluate speed and thermal improvements against saved image quality
 - [ ] Record repeatable performance results on supported NVIDIA hardware
 
@@ -298,6 +321,8 @@ Issues, bug reports, and pull requests are welcome. When reporting a generation 
 ## License
 
 MOSS Image Studio code and scripts are available under the MIT License. See [`LICENSE`](LICENSE). Model weights and upstream libraries have separate licenses; consult their official project pages before use.
+
+The Rapid-MOSS integration in `studio/rapid_moss.py` is adapted from Apache-2.0 code. See [third-party notices](THIRD_PARTY_NOTICES.md) and the [Apache-2.0 license](LICENSES/Apache-2.0.txt).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import threading
+import turbo_config
 
 STUDIO = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(STUDIO)
@@ -14,7 +15,7 @@ class Cancelled(Exception):
     pass
 
 def turbo_available():
-    return False
+    return turbo_config.available()
 
 def upscaler_available():
     return False
@@ -53,6 +54,7 @@ class Engine:
                 text=True, encoding="utf-8", errors="replace", cwd=ROOT)
             process = self.process
         spec = {key: job[key] for key in ("model", "prompt", "negative", "width", "height", "steps", "cfg", "seed")}
+        spec["turbo"] = bool(job.get("turbo"))
         spec["output"] = out_path
         process.stdin.write(json.dumps(spec) + "\n")
         process.stdin.close()
