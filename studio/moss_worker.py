@@ -66,7 +66,21 @@ def main():
     event(stage="Encoding prompt")
     if turbo:
         from rapid_moss import generate
+        from prompt_cache import PromptCache, encoder_identity
         from weellm.models.transformers.base_transformer_streamer import BaseTransformerStreamer
+        prompt_cache = None
+        # Private requests bypass fingerprinting and all cache filesystem access.
+        if not spec.get("private"):
+            try:
+                prompt_cache = PromptCache(Path(__file__).parent / "prompt_cache",
+                                           encoder_identity(local, pipe._pipeline.encode_prompt))
+            except (OSError, TypeError, ValueError):
+                pass  # Optional cache must never prevent normal encoding.
+        def encode_prompt(prompt):
+            if prompt_cache is None:
+                return pipe._pipeline.encode_prompt(prompt)
+            return prompt_cache.encode(prompt, pipe._pipeline.encode_prompt,
+                                       pipe._pipeline._execution_device)
         # The custom sampler bypasses WeeBasePipeline.__call__; retain its
         # conservative activation headroom used by streaming cache decisions.
         overhead = (spec["width"] // 16) * (spec["height"] // 16) * 500 * 1024
@@ -78,7 +92,9 @@ def main():
         image = generate(pipe._pipeline, turbo_config.DIRECTORY, spec["prompt"],
                          spec["width"], spec["height"], spec["seed"], progress,
                          timings=timings, chunk_tokens=chunk_tokens, cache_mb=cache_mb,
-                         vram_budget_gb=budget, report=event)
+                         vram_budget_gb=budget, report=event, encode_prompt=encode_prompt)
+        event(prompt_cache=prompt_cache.status if prompt_cache else
+              ("private" if spec.get("private") else "disabled"))
         event(turbo_adapter=turbo_config.REPO, turbo_revision=turbo_config.REVISION)
     else:
         with timings.stage("generation"):

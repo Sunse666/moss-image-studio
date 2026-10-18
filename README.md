@@ -88,7 +88,7 @@ MOSS Image Studio is a local, open-source text-to-image app for Windows and NVID
 
 [![MOSS Image Studio generation interface][product-screenshot]](#usage)
 
-**Turbo 4-step is the default.** The latest 768 × 1024 portrait test completed on an **RTX 3050 Laptop GPU with 4 GB VRAM in 83.19 seconds**, including loading, with a sampled system-wide peak of **1,863 MiB VRAM**. See the [benchmark](#benchmark) for settings and the actual generated image. This is a measured result from one laptop, not a promise of typical speed or identical quality to the normal model.
+**Turbo 4-step is the default.** The latest cache-hit 768 × 1024 portrait test completed on an **RTX 3050 Laptop GPU with 4 GB VRAM in 73.77 seconds**, including loading, with a sampled system-wide peak of **1,967 MiB VRAM**. See the [benchmark](#benchmark) for settings and the actual generated image. This is a measured result from one laptop, not a promise of typical speed or identical quality to the normal model.
 
 ### Features
 
@@ -176,7 +176,11 @@ Adapter processing now uses chunks of up to 1,024 tokens, reduced automatically 
 
 Generated image details and JSON sidecars now include synchronized wall-clock `stage_seconds` for startup/imports, model loading, prompt encoding, adapter setup, sampling, cleanup, image decoding, and PNG saving. `adapter_stats` records cache usage and chunk counts. Optional tuning: `MOSS_TURBO_CHUNK` (128–2,048; default 1,024) and `MOSS_TURBO_CACHE_MB` (0–256; default 128, use 0 to disable). These are memory/performance settings, not quality presets.
 
-**Latest verified run:** 768 × 1024, four steps, seed 42, CFG disabled: **83.19 seconds including loading**, **1,863 MiB sampled peak VRAM**, and **87°C peak GPU temperature**. The completed portrait was visually reviewed. This single result does not establish performance or quality for other prompts, sizes, or devices. The adapter's author documents quality trade-offs; Turbo does not produce the same image as normal sampling.
+**Repeated-prompt acceleration:** Turbo now caches the exact prompt embeddings and attention mask locally, retaining their original precision. Reusing the same prompt with a different seed or image size can skip text-encoder inference without changing the encoding or sampler. New prompts still require encoding. Cache identity tracks the encoder/tokenizer files, encoding implementation and package versions. The cache is bounded to 32 entries / 128 MiB in `studio/prompt_cache/`; delete that folder to clear it. Embeddings can contain information about prompts: private mode bypasses all cache reads and writes. Image details report `prompt_cache` alongside stage timings.
+
+**Verified cache-hit run:** the same 768 × 1024 portrait prompt, seed 42 and four steps completed in **73.77 seconds including loading**, with **1,967 MiB system-wide sampled peak VRAM** (0.5-second polling) and **87°C peak GPU temperature**. Prompt lookup/copy took **0.0139 seconds**, compared with 18.86 seconds encoding previously. Overall time was 11.3% shorter than the prior 83.19-second run; startup and sampling were slower in this run, so the earlier ~64-second estimate was not achieved. Exactly one image was generated after a separate encoding-only cache warmup; preparation time is excluded from this cache-hit measurement. The output was pixel-identical to the previous optimized portrait. This is one measured comparison, not a typical-speed guarantee. Fresh prompts still require encoding.
+
+**Previous uncached run:** 768 × 1024, four steps, seed 42, CFG disabled: **83.19 seconds including loading**, **1,863 MiB sampled peak VRAM**, and **87°C peak GPU temperature**. The completed portrait was visually reviewed. This single result does not establish performance or quality for other prompts, sizes, or devices. The adapter's author documents quality trade-offs; Turbo does not produce the same image as normal sampling.
 
 The app has **no temperature cutoff or automatic thermal cooldown**. Optional fixed queue delays are user-selected and default to Off. GPU and firmware protections are managed by the device, not this app.
 
@@ -223,6 +227,7 @@ The portrait runs used an RTX 3050 Laptop GPU with 4 GB VRAM, MOSS-Image-SFT, th
 | Portrait generation | 768 × 1024, 30 steps | 15 min 39 sec, including model loading | 1,823 MiB (about 1.78 GiB) |
 | Earlier Turbo implementation | 768 × 1024, four CFG-free steps | 89.25 seconds, including model loading | 1,697 MiB (about 1.66 GiB) |
 | **Turbo with chunk/cache tuning (default)** | **Same prompt, seed, size, precision, and four steps** | **83.19 seconds, including loading** | **1,863 MiB (about 1.82 GiB)** |
+| **Turbo with prompt cache hit** | **Same prompt, seed, size, precision, and four steps; cache prepared separately** | **73.77 seconds, including loading** | **1,967 MiB (about 1.92 GiB)** |
 
 The chunk/cache check generated exactly one image. It was 6.8% shorter than the earlier Turbo run, with comparable visual clarity, but the output was not pixel-identical and some background details changed. Peak GPU temperature was 87°C. This is a single comparison, not proof of a repeatable speed gain or lower temperature.
 

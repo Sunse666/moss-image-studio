@@ -1148,6 +1148,7 @@ function openLb(kind, name) {
     ["Turbo", m.turbo && m.mode !== "upscale" ? "Rapid-MOSS four-step data-space sampler" : null], ["Mask", m.mask ? "yes" : null],
     ["Negative", m.negative], ["Time", m.seconds && fmtDur(m.seconds)], ["Speed", m.sec_per_it && m.sec_per_it + " s/step"], ["File", kind === "private" ? null : name]];
   const stageLabels = {imports: "Startup", model_load: "Model loading", prompt_encode: "Prompt encoding", adapter_setup: "Adapter setup", sampling: "Sampling", adapter_cleanup: "Adapter cleanup", vae_decode: "Image decoding", png_save: "PNG saving", worker_total: "Worker total", generation: "Generation"};
+  if (m.prompt_cache) rows.push(["Prompt cache", m.prompt_cache]);
   Object.entries(m.stage_seconds || {}).forEach(([key, seconds]) => {
     if (Number.isFinite(seconds)) rows.push([stageLabels[key] || key, seconds.toFixed(2) + " s"]);
   });

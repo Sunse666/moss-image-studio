@@ -55,6 +55,7 @@ class Engine:
             process = self.process
         spec = {key: job[key] for key in ("model", "prompt", "negative", "width", "height", "steps", "cfg", "seed")}
         spec["turbo"] = bool(job.get("turbo"))
+        spec["private"] = bool(job.get("private"))
         spec["output"] = out_path
         process.stdin.write(json.dumps(spec) + "\n")
         process.stdin.close()

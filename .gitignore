@@ -5,6 +5,7 @@ outputs/
 inputs/
 logs/
 studio/tmp/
+studio/prompt_cache/
 studio/settings.json
 studio/calibration.json
 studio/library.json

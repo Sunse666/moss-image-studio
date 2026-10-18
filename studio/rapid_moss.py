@@ -163,11 +163,12 @@ def sample_latents(transformer, Q, codes, embeds, mask, width, height, seed, pro
 
 @torch.no_grad()
 def generate(pipe, adapter_root, prompt, width, height, seed, progress, *,
-             timings=None, chunk_tokens=1024, cache_mb=128, vram_budget_gb=2.5, report=None):
+             timings=None, chunk_tokens=1024, cache_mb=128, vram_budget_gb=2.5, report=None,
+             encode_prompt=None):
     stage = timings.stage if timings else lambda name: nullcontext()
     # Keep WeeLLM's existing encode/transformer/VAE offload hooks intact.
     with stage("prompt_encode"):
-        embeds, mask = pipe.encode_prompt(prompt)
+        embeds, mask = (encode_prompt or pipe.encode_prompt)(prompt)
     with stage("adapter_setup"):
         adapter = RapidMossAdapter(pipe.transformer, adapter_root, chunk_tokens=chunk_tokens,
                                    cache_mb=cache_mb, vram_budget_gb=vram_budget_gb)
