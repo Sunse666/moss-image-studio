@@ -1,43 +1,222 @@
-# MOSS Image Studio
+<a id="readme-top"></a>
 
-**MOSS Image Studio** is a local text-to-image app for Windows PCs with NVIDIA RTX graphics. Generate images from prompts in a browser-based studio using the official [MOSS-Image](https://github.com/OpenMOSS/MOSS-Image) models and [WeeLLM](https://github.com/Jit-Roy/WeeLLM) weight streaming for GPUs with limited VRAM.
+<!-- PROJECT SHIELDS -->
+[![Windows][windows-shield]][windows-url]
+[![Python][python-shield]][python-url]
+[![NVIDIA CUDA][cuda-shield]][cuda-url]
+[![MOSS-Image][model-shield]][model-url]
+[![MIT License][license-shield]][license-url]
+[![Stars][stars-shield]][stars-url]
+[![Views][views-shield]][views-url]
 
-![MOSS Image Studio interface](docs/moss-studio.png)
+<!-- PROJECT LOGO -->
+<br />
+<div align="center">
+  <a href="#about-the-project">
+    <img src="docs/logo.svg" alt="MOSS Image Studio logo" width="96" height="96">
+  </a>
 
-[![Repository views](https://komarev.com/ghpvc/?username=sanketshinde3001&repo=moss-image-studio&label=Repository%20views&color=blue)](https://github.com/sanketshinde3001/moss-image-studio)
+  <h3 align="center">MOSS Image Studio</h3>
 
-## Quick start on Windows
+  <p align="center">
+    Generate images from text prompts with MOSS-Image on your Windows PC with an NVIDIA RTX GPU.
+    <br />
+    A local browser studio with CUDA and WeeLLM weight streaming for low-VRAM systems.
+    <br />
+    <a href="#getting-started"><strong>Get started »</strong></a>
+    <br />
+    <br />
+    <a href="#usage">Usage</a>
+    &middot;
+    <a href="#benchmark">Benchmark</a>
+    &middot;
+    <a href="#how-it-works">How it works</a>
+    &middot;
+    <a href="#limitations">Limitations</a>
+    &middot;
+    <a href="https://github.com/sanketshinde3001/moss-image-studio/issues">Report a bug</a>
+  </p>
+</div>
 
-You need Windows, Python 3.13, Git, an NVIDIA GPU with a current driver, and enough SSD space for the selected model. The MOSS-Image-SFT download is about 27 GB. Model weights are downloaded separately and are not included in this repository.
+<!-- TABLE OF CONTENTS -->
+<details>
+  <summary>Table of Contents</summary>
+  <ol>
+    <li><a href="#about-the-project">About the project</a>
+      <ul>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#built-with">Built with</a></li>
+      </ul>
+    </li>
+    <li><a href="#getting-started">Getting started</a>
+      <ul>
+        <li><a href="#prerequisites">Prerequisites</a></li>
+        <li><a href="#installation">Installation</a></li>
+        <li><a href="#troubleshooting">Troubleshooting</a></li>
+      </ul>
+    </li>
+    <li><a href="#usage">Usage</a></li>
+    <li><a href="#how-it-works">How it works</a>
+      <ul>
+        <li><a href="#benchmarks">Benchmark</a></li>
+        <li><a href="#architecture">Architecture</a></li>
+        <li><a href="#privacy">Privacy</a></li>
+      </ul>
+    </li>
+    <li><a href="#limitations">Limitations</a></li>
+    <li><a href="#frequently-asked-questions">Frequently asked questions</a></li>
+    <li><a href="#roadmap">Roadmap</a></li>
+    <li><a href="#contributing">Contributing</a></li>
+    <li><a href="#license">License</a></li>
+    <li><a href="#contact">Contact</a></li>
+    <li><a href="#acknowledgments">Acknowledgments</a></li>
+    <li><a href="#star-history">Star history</a></li>
+  </ol>
+</details>
 
-Open PowerShell in the project folder and run:
+<!-- ABOUT THE PROJECT -->
+## About the project
+
+MOSS Image Studio is a local, open-source text-to-image app for Windows and NVIDIA RTX GPUs. It gives you a browser interface for the official [MOSS-Image](https://github.com/OpenMOSS/MOSS-Image) models and uses [WeeLLM](https://github.com/Jit-Roy/WeeLLM) to stream model weights when GPU memory is limited.
+
+[![MOSS Image Studio generation interface][product-screenshot]](#usage)
+
+This project is for people who want to try MOSS image generation on a personal RTX computer. It is designed to run with a modest VRAM budget, with the trade-off that streaming a large model can take time. The project is early and performance tuning is ongoing; the benchmark below is one real run, not a promise of typical speed.
+
+### Features
+
+**Text-to-image generation**
+* Choose the official MOSS-Image-SFT or MOSS-Image-Base model.
+* Set prompts, negative prompts, seeds, image variations, styles, and aspect ratios.
+* Select Draft, Balanced, or Quality presets, or customize output size and steps.
+
+**Local image workflow**
+* Queue prompts and follow sampling progress; pause, reorder, or cancel queued jobs.
+* Browse, search, compare, favorite, and download generated images.
+* Save reusable prompt presets and download selected results as a ZIP.
+* Use Private mode for temporary results, with Keep or Discard controls.
+
+The current app generates images from text. Image editing, masks, and image-to-image generation are not available.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+### Built with
+
+* [![Python][python-wide]][python-url]
+* [![PyTorch][pytorch-shield]][pytorch-url]
+* [![NVIDIA CUDA][cuda-wide]][cuda-url]
+* [![WeeLLM][weellm-shield]][weellm-url]
+* [![Diffusers][diffusers-shield]][diffusers-url]
+
+The UI is a single HTML file and needs no frontend build step. The local Python server listens on `127.0.0.1` by default.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- GETTING STARTED -->
+## Getting started
+
+### Prerequisites
+
+* Windows 10 or 11
+* Python 3.13 and Git
+* NVIDIA GPU with a current driver and CUDA support
+* SSD storage for the Python environment, model files, cache, and generated images
+* Around 27 GB for the MOSS-Image-SFT weights; leave additional space for the app and outputs
+
+### Installation
+
+1. Clone this repository and enter the project folder:
+   ```powershell
+   git clone https://github.com/sanketshinde3001/moss-image-studio.git
+   cd moss-image-studio
+   ```
+2. Set up the Python environment and CUDA dependencies:
+   ```powershell
+   ./setup.ps1
+   ```
+3. Download MOSS-Image-SFT weights (about 27 GB):
+   ```powershell
+   ./download.ps1
+   ```
+4. Start the studio:
+   ```powershell
+   ./studio.ps1
+   ```
+5. Open [http://127.0.0.1:7860](http://127.0.0.1:7860) in your browser.
+
+To download MOSS-Image-Base as well, run `./download.ps1 -Model Base` and select it in the app. Downloads can be resumed by running the download command again. For a slower connection, use:
 
 ```powershell
-./setup.ps1
-./download.ps1
-./studio.ps1
+./.venv/Scripts/python.exe download.py SFT --workers 8 --parallel-files 2
 ```
 
-Then open [http://127.0.0.1:7860](http://127.0.0.1:7860). To download the Base model too, run `./download.ps1 -Model Base` and select it in the studio. Downloads can resume if interrupted. For a slower or unstable connection, use `./.venv/Scripts/python.exe download.py SFT --workers 8 --parallel-files 2`.
+The model weights are not stored in this GitHub repository. They are downloaded from the official [MOSS-Image-SFT model card](https://huggingface.co/OpenMOSS-Team/MOSS-Image-SFT) and retain their own license terms.
 
-## What it does
+### Troubleshooting
 
-- Generates images from text with MOSS-Image-SFT or MOSS-Image-Base.
-- Provides prompts, negative prompts, seeds, variations, styles, and aspect ratios.
-- Manages a serial generation queue with pause, reorder, cancel, and progress controls.
-- Includes a local gallery with search, compare, favorites, saved presets, and ZIP downloads.
-- Offers a private mode that stores temporary results only when you choose to keep them.
-- Runs its web server on localhost; it is not exposed to your network by default.
+**CUDA is unavailable.** Check the NVIDIA driver with `nvidia-smi`, close other GPU-heavy applications, and rerun `./setup.ps1`.
 
-MOSS Image Studio currently supports **text-to-image generation**. Image editing and inpainting are not available in this app.
+**The selected model is missing.** Run `./download.ps1` or `./download.ps1 -Model Base`, then select the downloaded model in the studio.
 
-## NVIDIA RTX 3050 with 4 GB VRAM
+**Generation runs out of memory.** Close other GPU applications, choose a smaller output size, and lower the `MOSS_VRAM_GB` budget if Windows needs more memory.
 
-The built-in Draft preset starts at 512 px and 12 steps. Balanced uses 768 px and 30 steps; Quality uses 1024 px and 50 steps. Output is capped at 1024 pixels per side. A draft uses fewer steps to shorten a trial and can produce different quality from a longer run.
+**Model loading is slow.** The streaming approach reads model weights from disk. An SSD is recommended, and the first run includes model loading.
 
-This project completed one measured portrait generation on an **RTX 3050 Laptop GPU with 4 GB VRAM** at **768 × 1024 pixels and 30 steps**. It took **15 minutes 39 seconds**, including model loading. System-wide peak GPU memory sampled during the run was **1,823 MiB (about 1.78 GiB)**. This is one run on one laptop; generation time varies with model loading, available RAM, SSD, driver, other GPU activity, and laptop cooling. It is not a speed guarantee. No landscape or product generation was measured.
+**Python imports fail.** Rerun `./setup.ps1` to recreate the project environment and install the pinned dependencies.
 
-The default streaming budget is 2.5 GB VRAM, with a 2 GB RAM cache budget, disk-backed weights, and 256 px VAE tiles. Actual process RAM can exceed the cache budget. An SSD is recommended. You can adjust the budgets before launch:
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- USAGE -->
+## Usage
+
+1. Start the studio with `./studio.ps1`.
+2. Select an installed MOSS model and write a text prompt.
+3. Choose a size preset, aspect ratio, and generation settings.
+4. Submit the job and follow its progress in the queue.
+5. Open the finished image in the gallery to compare, favorite, save, or download it.
+
+For a shorter initial trial on a 4 GB RTX GPU, use Draft at 512 px and 12 steps. Balanced uses 768 px and 30 steps; Quality uses 1024 px and 50 steps. Lower step counts can change the result, so use the same settings when comparing outputs.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- HOW IT WORKS -->
+## How it works
+
+MOSS Image Studio runs the interface and generation locally. WeeLLM streams model weights from SSD instead of requiring the full checkpoint to reside in GPU memory. This helps fit large models into a low VRAM budget, while adding model loading and disk transfer time.
+
+### Benchmark
+
+One portrait image was generated on an RTX 3050 Laptop GPU with 4 GB VRAM. It used MOSS-Image-SFT at 768 × 1024 pixels and 30 steps.
+
+| Task | Settings | Elapsed time | Sampled system-wide peak VRAM |
+|---|---|---:|---:|
+| Portrait generation | 768 × 1024, 30 steps | 15 min 39 sec, including model loading | 1,823 MiB (about 1.78 GiB) |
+
+This is one measured run on one laptop. Speed and temperature vary with the driver, background GPU use, available RAM, SSD, and cooling. No landscape or product benchmark was completed. Results do not predict future performance after optimization.
+
+### Architecture
+
+```text
+Browser interface (studio/index.html)
+        │  local HTTP requests
+        ▼
+Python web server and serial job queue (studio/server.py)
+        │  one isolated worker process per generation job
+        ▼
+MOSS generation worker (studio/moss_worker.py)
+        │  CUDA, Diffusers, WeeLLM weight streaming
+        ▼
+NVIDIA GPU + local model files on SSD
+```
+
+* `download.py` downloads model files and verifies their SHA256 hashes.
+* `studio/server.py` handles the local web interface, jobs, gallery, settings, and downloads.
+* `studio/moss_worker.py` runs an isolated model generation job.
+* `studio/engine.py` configures MOSS and the WeeLLM streaming pipeline.
+
+### Memory and performance
+
+The default settings reserve up to 2.5 GB for VRAM streaming and 2 GB for the RAM cache, with disk-backed model weights and 256 px VAE tiles. Actual process RAM can exceed the cache budget. You can set the budgets before starting the app:
 
 ```powershell
 $env:MOSS_VRAM_GB = '2.5'
@@ -45,34 +224,132 @@ $env:MOSS_RAM_GB = '2'
 ./studio.ps1
 ```
 
-More VRAM does not guarantee faster generation. The streaming approach trades speed for lower memory use. Close GPU-heavy apps and allow the laptop to cool between long runs.
+A 27 GB model download fitting on disk does not mean a generation will be fast. Streaming lowers memory requirements by moving weights between storage, RAM, and GPU. Close other GPU-heavy apps and let a laptop cool between long runs.
 
+### Privacy
+
+* The web server binds to `127.0.0.1` by default.
+* Model downloads connect to Hugging Face; generation runs on your computer after the weights are downloaded.
+* Private mode keeps results temporary unless you choose Keep. Private jobs do not write per-job logs or gallery sidecar files.
+* Normal generated images and project files remain on local storage. The app does not include a cloud generation service.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- LIMITATIONS -->
+## Limitations
+
+* NVIDIA CUDA on Windows is the supported setup; other GPU platforms are not covered by these setup scripts.
+* The current app supports text-to-image only. Image editing and inpainting are not implemented.
+* Model weight streaming reduces the VRAM requirement at the cost of additional loading and transfer time.
+* The built-in output size is limited to 1024 pixels per side.
+* The recorded RTX 3050 result is one run. It is not a benchmark suite or a speed guarantee.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- FAQ -->
 ## Frequently asked questions
 
 ### What is MOSS Image Studio?
-It is a local Windows app for generating images from text prompts with the MOSS-Image models on NVIDIA CUDA GPUs. It uses WeeLLM to stream model weights for low-VRAM systems.
+A local Windows application for generating images from text prompts with MOSS-Image models on NVIDIA CUDA GPUs.
 
 ### Can MOSS Image Studio run on an RTX 3050 with 4 GB VRAM?
-One 768 × 1024 image was successfully generated on an RTX 3050 Laptop GPU with 4 GB VRAM. That run took 15 minutes 39 seconds including model loading and reached a sampled system-wide peak of 1,823 MiB. Results and heat vary by laptop and workload.
+One 768 × 1024 image was successfully generated on an RTX 3050 Laptop GPU with 4 GB VRAM. It took 15 minutes 39 seconds, including model loading, and reached a sampled system-wide peak of 1,823 MiB. Results vary by computer and workload.
 
-### Does it support image editing or image-to-image?
+### Does the app support image editing or inpainting?
 No. The current app supports text-to-image generation only.
 
-### How much storage does the MOSS model need?
-The MOSS-Image-SFT download is about 27 GB. Leave additional SSD space for the Python environment, caches, and generated images. The Base model is a separate download.
+### How large is the MOSS-Image-SFT download?
+About 27 GB. Leave extra SSD space for the Python environment, model caches, and generated images.
 
-### Where do the models come from?
-The app downloads official MOSS-Image model files from OpenMOSS/Hugging Face. Review the [MOSS project](https://github.com/OpenMOSS/MOSS-Image) and the [MOSS-Image-SFT model card](https://huggingface.co/OpenMOSS-Team/MOSS-Image-SFT) for model details and licensing.
+### Are the model weights included in this repository?
+No. The download script fetches them from Hugging Face. The weights have separate license terms; see the official model card before use.
 
-## Troubleshooting
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-- **CUDA is unavailable:** check `nvidia-smi`, update the NVIDIA driver if needed, then rerun `./setup.ps1`.
-- **A model is missing:** run `./download.ps1` for the model selected in the studio.
-- **Out of memory:** close GPU-heavy apps, reduce image size or the `MOSS_VRAM_GB` budget, and run one queued job at a time.
-- **Model loading is slow:** use an SSD and allow time for streamed weights to load.
-- **Imports fail:** rerun setup. WeeLLM and its Diffusers/Transformers dependencies need compatible versions.
+<!-- ROADMAP -->
+## Roadmap
 
-## Credits and licenses
+- [x] Windows and NVIDIA CUDA setup
+- [x] MOSS-Image-SFT and MOSS-Image-Base model selection
+- [x] Local text-to-image studio with gallery and generation queue
+- [x] Low VRAM generation through WeeLLM model streaming
+- [ ] Evaluate speed and thermal improvements against saved image quality
+- [ ] Record repeatable performance results on supported NVIDIA hardware
 
-MOSS Image Studio code is distributed under the MIT License in this repository. MOSS model weights have separate terms; see the official [MOSS project](https://github.com/OpenMOSS/MOSS-Image) and [model card](https://huggingface.co/OpenMOSS-Team/MOSS-Image). WeeLLM is a separate project; see its [repository](https://github.com/Jit-Roy/WeeLLM).
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- CONTRIBUTING -->
+## Contributing
+
+Issues, bug reports, and pull requests are welcome. When reporting a generation problem, include your GPU model, VRAM, image size, step count, selected MOSS model, and the relevant error log. Do not include private prompts or images unless you intend to share them publicly.
+
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feature/your-change`).
+3. Commit your changes (`git commit -m "Describe your change"`).
+4. Push your branch and open a pull request.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- LICENSE -->
+## License
+
+MOSS Image Studio code and scripts are available under the MIT License. See [`LICENSE`](LICENSE). Model weights and upstream libraries have separate licenses; consult their official project pages before use.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- ACKNOWLEDGMENTS -->
+## Acknowledgments
+
+* [MOSS-Image](https://github.com/OpenMOSS/MOSS-Image) by OpenMOSS.
+* [WeeLLM](https://github.com/Jit-Roy/WeeLLM), the model streaming project.
+* [Diffusers](https://github.com/huggingface/diffusers), [PyTorch](https://pytorch.org/), and the Hugging Face model hub.
+* README structure inspired by [Best-README-Template](https://github.com/othneildrew/Best-README-Template).
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- CONTACT -->
+## Contact
+
+Project maintainer: [Sanket Shinde](https://github.com/sanketshinde3001)
+
+Questions, bug reports, and feature requests: [open an issue](https://github.com/sanketshinde3001/moss-image-studio/issues).
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- STAR HISTORY -->
+## Star history
+
+<a href="https://star-history.com/#sanketshinde3001/moss-image-studio&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=sanketshinde3001/moss-image-studio&type=Date&theme=dark" />
+    <img alt="MOSS Image Studio GitHub star history" src="https://api.star-history.com/svg?repos=sanketshinde3001/moss-image-studio&type=Date" />
+  </picture>
+</a>
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- MARKDOWN LINKS & IMAGES -->
+[windows-shield]: https://img.shields.io/badge/Windows-10%20%2F%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white
+[windows-url]: https://www.microsoft.com/windows
+[python-shield]: https://img.shields.io/badge/Python-3.13-3776AB?style=for-the-badge&logo=python&logoColor=white
+[python-wide]: https://img.shields.io/badge/Python-3.13-3776AB?style=for-the-badge&logo=python&logoColor=white
+[python-url]: https://www.python.org/
+[cuda-shield]: https://img.shields.io/badge/NVIDIA-CUDA-76B900?style=for-the-badge&logo=nvidia&logoColor=white
+[cuda-wide]: https://img.shields.io/badge/NVIDIA%20CUDA-RTX%20GPU-76B900?style=for-the-badge&logo=nvidia&logoColor=white
+[cuda-url]: https://developer.nvidia.com/cuda-zone
+[model-shield]: https://img.shields.io/badge/Model-MOSS--Image-8A63D2?style=for-the-badge
+[model-url]: https://github.com/OpenMOSS/MOSS-Image
+[pytorch-shield]: https://img.shields.io/badge/PyTorch-CUDA-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white
+[pytorch-url]: https://pytorch.org/
+[weellm-shield]: https://img.shields.io/badge/WeeLLM-streaming-333333?style=for-the-badge
+[weellm-url]: https://github.com/Jit-Roy/WeeLLM
+[diffusers-shield]: https://img.shields.io/badge/Hugging%20Face-Diffusers-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black
+[diffusers-url]: https://github.com/huggingface/diffusers
+[product-screenshot]: docs/moss-studio.png
+[license-shield]: https://img.shields.io/badge/License-MIT-2ea44f?style=for-the-badge
+[license-url]: LICENSE
+[stars-shield]: https://img.shields.io/github/stars/sanketshinde3001/moss-image-studio?style=for-the-badge
+[stars-url]: https://github.com/sanketshinde3001/moss-image-studio/stargazers
+[views-shield]: https://hits.sh/github.com/sanketshinde3001/moss-image-studio.svg?style=for-the-badge&label=views&color=f0a14a
+[views-url]: https://hits.sh/github.com/sanketshinde3001/moss-image-studio/
 
