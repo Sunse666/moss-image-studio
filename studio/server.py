@@ -273,7 +273,7 @@ def run_image_job(job):
         raise Cancelled()
     finish(job, name, {k: job.get(k) for k in (
         "mode", "prompt", "negative", "width", "height", "steps", "cfg", "seed", "model",
-        "turbo", "turbo_adapter", "turbo_revision", "sampler",
+        "turbo", "turbo_adapter", "turbo_revision", "sampler", "stage_seconds", "adapter_stats",
         "gpu", "torch_version", "peak_allocated_mb", "peak_reserved_mb")})
 
 

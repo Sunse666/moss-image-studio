@@ -1147,6 +1147,10 @@ function openLb(kind, name) {
     ["Sampler", m.sampler && m.mode !== "upscale" && `${m.sampler} / ${m.scheduler || "default"}`], ["Fast mode", m.fast ? `on (${m.fast_threshold})` : null],
     ["Turbo", m.turbo && m.mode !== "upscale" ? "Rapid-MOSS four-step data-space sampler" : null], ["Mask", m.mask ? "yes" : null],
     ["Negative", m.negative], ["Time", m.seconds && fmtDur(m.seconds)], ["Speed", m.sec_per_it && m.sec_per_it + " s/step"], ["File", kind === "private" ? null : name]];
+  const stageLabels = {imports: "Startup", model_load: "Model loading", prompt_encode: "Prompt encoding", adapter_setup: "Adapter setup", sampling: "Sampling", adapter_cleanup: "Adapter cleanup", vae_decode: "Image decoding", png_save: "PNG saving", worker_total: "Worker total", generation: "Generation"};
+  Object.entries(m.stage_seconds || {}).forEach(([key, seconds]) => {
+    if (Number.isFinite(seconds)) rows.push([stageLabels[key] || key, seconds.toFixed(2) + " s"]);
+  });
   $("#lbMeta").innerHTML = rows.filter(r => r[1] != null && r[1] !== "").map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join("");
   const hasBefore = (m.mode === "edit" || m.mode === "upscale") && m.refs && m.refs.length;
   setBefore(hasBefore ? `/ref/${encodeURIComponent(m.refs[0])}` : null, "before", "after");

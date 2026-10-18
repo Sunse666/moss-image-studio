@@ -102,6 +102,53 @@ class RapidTests(unittest.TestCase):
         self.assertEqual(calls, codes.tolist())
         torch.testing.assert_close(actual, expected, rtol=0, atol=0)
 
+    def test_cached_larger_chunks_preserve_fp32_math_and_release_cache(self):
+        linear = self.model.layers[0].proj['q']
+        x = torch.randn(1, 2053, 4).bfloat16()
+        outputs = []
+        for chunk, cache_mb in ((128, 0), (1024, 1)):
+            adapter = RapidMossAdapter(self.model, self.root, chunk_tokens=chunk, cache_mb=cache_mb)
+            try:
+                with torch.no_grad():
+                    first, second = linear(x), linear(x)
+                torch.testing.assert_close(first, second, rtol=0, atol=0)
+                outputs.append(first)
+                if cache_mb:
+                    self.assertEqual(adapter.stats['cache_hits'], 1)
+                    self.assertEqual(adapter.stats['cache_misses'], 1)
+                    self.assertLessEqual(adapter.stats['cache_bytes'], cache_mb * 2**20)
+                    self.assertTrue(all(t.dtype == torch.float32 for pair in adapter.cache.values() for t in pair))
+                else:
+                    self.assertEqual(adapter.stats['cache_hits'], 0)
+                    self.assertEqual(adapter.cache, {})
+            finally:
+                adapter.close()
+                self.assertEqual(adapter.cache, {})
+        torch.testing.assert_close(outputs[0], outputs[1], rtol=0, atol=0)
+
+    def test_unchanged_time_path_is_not_reloaded(self):
+        adapter = RapidMossAdapter(self.model, self.root)
+        self.addCleanup(adapter.close)
+        args = (torch.zeros(1, 4, 1, 1),)
+        adapter._restore_time_path(self.model, args)
+        adapter._restore_time_path(self.model, args)
+        self.assertEqual(adapter.stats['time_path_loads'], 1)
+        self.model.bfloat16()  # Simulate WeeLLM restoring resident weights.
+        adapter._restore_time_path(self.model, args)
+        self.assertEqual(adapter.stats['time_path_loads'], 2)
+
+    def test_stage_timings_synchronize_at_boundaries(self):
+        from timing import StageTimings
+        with patch('timing.time.perf_counter', side_effect=[10., 11., 13., 15.]):
+            timings = StageTimings()
+            from unittest.mock import Mock
+            synchronize = Mock()
+            timings.synchronize = synchronize
+            with timings.stage('sampling'):
+                pass
+            self.assertEqual(timings.finish(), {'sampling': 2., 'worker_total': 5.})
+            self.assertEqual(synchronize.call_count, 3)
+
     def test_missing_lora_tensor_fails_before_sampling(self):
         self.lora.pop("diffusion_model.layers.0.proj.q.alpha")
         save_file(self.lora, self.root / "lora.safetensors")

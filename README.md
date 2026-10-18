@@ -88,7 +88,7 @@ MOSS Image Studio is a local, open-source text-to-image app for Windows and NVID
 
 [![MOSS Image Studio generation interface][product-screenshot]](#usage)
 
-**Turbo 4-step is the default.** One 768 × 1024 portrait completed on an **RTX 3050 Laptop GPU with 4 GB VRAM in 89.25 seconds**, including loading, with a sampled system-wide peak of **1,697 MiB VRAM**. See the [benchmark](#benchmark) for settings and the actual generated image. This is a measured result from one laptop, not a promise of typical speed or identical quality to the normal model.
+**Turbo 4-step is the default.** The latest 768 × 1024 portrait test completed on an **RTX 3050 Laptop GPU with 4 GB VRAM in 83.19 seconds**, including loading, with a sampled system-wide peak of **1,863 MiB VRAM**. See the [benchmark](#benchmark) for settings and the actual generated image. This is a measured result from one laptop, not a promise of typical speed or identical quality to the normal model.
 
 ### Features
 
@@ -172,7 +172,11 @@ The studio selects **MOSS-Image SFT** and **Turbo 4-step** by default when the a
 
 Turbo runs the adapter's dedicated four-step data-space sampler, with no CFG, negative prompt, or ordinary Euler schedule. The original BF16 model still streams through WeeLLM. FP32 LoRA weights remain unmerged on disk and transfer one projection at a time; FP32 activation calculations are chunked to limit temporary memory. Time embeddings and modulation calculations use FP32, including after resident weights reload. Text-encoder eviction and tiled VAE decoding remain enabled. The default VRAM budget stays at 2.5 GB.
 
-**Verified run:** 768 × 1024, four steps, seed 42, CFG disabled: **89.25 seconds including loading**, **1,697 MiB sampled peak VRAM**, and **86°C peak GPU temperature**. The completed portrait was visually reviewed. This single result does not establish performance or quality for other prompts, sizes, or devices. The adapter's author documents quality trade-offs; Turbo does not produce the same image as normal sampling.
+Adapter processing now uses chunks of up to 1,024 tokens, reduced automatically for large projections to target at most 64 MiB of FP32 activation temporaries. A bounded 128 MiB first-fit cache reuses a subset of FP32 adapter weights across the four steps. Cache admission also checks free VRAM and the configured budget; the cache is cleared before VAE decoding. Unchanged FP32 time-path weights are reused until WeeLLM reloads them. These changes keep the model, precision, sampler, four steps, and resolution unchanged, but GPU rounding can still affect image details.
+
+Generated image details and JSON sidecars now include synchronized wall-clock `stage_seconds` for startup/imports, model loading, prompt encoding, adapter setup, sampling, cleanup, image decoding, and PNG saving. `adapter_stats` records cache usage and chunk counts. Optional tuning: `MOSS_TURBO_CHUNK` (128–2,048; default 1,024) and `MOSS_TURBO_CACHE_MB` (0–256; default 128, use 0 to disable). These are memory/performance settings, not quality presets.
+
+**Latest verified run:** 768 × 1024, four steps, seed 42, CFG disabled: **83.19 seconds including loading**, **1,863 MiB sampled peak VRAM**, and **87°C peak GPU temperature**. The completed portrait was visually reviewed. This single result does not establish performance or quality for other prompts, sizes, or devices. The adapter's author documents quality trade-offs; Turbo does not produce the same image as normal sampling.
 
 The app has **no temperature cutoff or automatic thermal cooldown**. Optional fixed queue delays are user-selected and default to Off. GPU and firmware protections are managed by the device, not this app.
 
@@ -212,20 +216,39 @@ MOSS Image Studio runs the interface and generation locally. WeeLLM streams mode
 
 ### Benchmark
 
-Two portrait runs used an RTX 3050 Laptop GPU with 4 GB VRAM, MOSS-Image-SFT, the same prompt, seed 42, and 768 × 1024 output. The normal run used 30 steps with CFG 3; Turbo used four CFG-free steps with the Rapid-MOSS adapter.
+The portrait runs used an RTX 3050 Laptop GPU with 4 GB VRAM, MOSS-Image-SFT, the same prompt, seed 42, and 768 × 1024 output. The normal run used 30 steps with CFG 3; Turbo used four CFG-free steps with the Rapid-MOSS adapter.
 
 | Task | Settings | Elapsed time | Sampled system-wide peak VRAM |
 |---|---|---:|---:|
 | Portrait generation | 768 × 1024, 30 steps | 15 min 39 sec, including model loading | 1,823 MiB (about 1.78 GiB) |
-| **Turbo 4-step (default)** | **768 × 1024, four CFG-free steps** | **89.25 seconds, including model loading** | **1,697 MiB (about 1.66 GiB)** |
+| Earlier Turbo implementation | 768 × 1024, four CFG-free steps | 89.25 seconds, including model loading | 1,697 MiB (about 1.66 GiB) |
+| **Turbo with chunk/cache tuning (default)** | **Same prompt, seed, size, precision, and four steps** | **83.19 seconds, including loading** | **1,863 MiB (about 1.82 GiB)** |
+
+The chunk/cache check generated exactly one image. It was 6.8% shorter than the earlier Turbo run, with comparable visual clarity, but the output was not pixel-identical and some background details changed. Peak GPU temperature was 87°C. This is a single comparison, not proof of a repeatable speed gain or lower temperature.
+
+Measured stage times for that run:
+
+| Stage | Time |
+|---|---:|
+| Startup/imports | 5.97 s |
+| Model loading | 6.11 s |
+| Prompt encoding | 18.86 s |
+| Adapter setup | 0.16 s |
+| Sampling | 45.11 s |
+| Adapter cleanup | 0.21 s |
+| Image decoding | 5.05 s |
+| PNG saving | 0.10 s |
+| **Overall job time** | **83.19 s** |
+
+Worker total was 81.75 s; overall job time also includes process startup and coordination. The adapter cache recorded 87 hits and one time-path load.
 
 These are individual measurements, not repeated controlled benchmarks. Speed and temperature vary with the driver, background GPU use, available RAM, SSD cache, and cooling. System-wide VRAM and temperature were sampled every two seconds. The completed Turbo run peaked at 86°C; PyTorch recorded 1,433 MiB allocated and 1,590 MiB reserved. No landscape or product benchmark was completed, and the two modes produce different images.
 
 <p align="center">
-  <img src="docs/turbo-portrait.png" alt="Portrait generated by MOSS Image Studio Turbo in 89.25 seconds on an RTX 3050 Laptop GPU with 4 GB VRAM" width="384">
+  <img src="docs/turbo-portrait.png" alt="Portrait generated by optimized MOSS Image Studio Turbo in 83.19 seconds on an RTX 3050 Laptop GPU with 4 GB VRAM" width="384">
 </p>
 
-<p align="center"><strong>Actual Turbo output · 768 × 1024 · 4 steps · 89.25 seconds · peak VRAM 1,697 MiB</strong></p>
+<p align="center"><strong>Actual optimized Turbo output · 768 × 1024 · 4 steps · 83.19 seconds · peak VRAM 1,863 MiB</strong></p>
 
 ### Architecture
 
