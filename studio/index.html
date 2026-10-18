@@ -262,7 +262,7 @@ textarea.bulk { min-height: 220px; }
         <button data-mode="gen" class="on">Generate</button>
       </div>
 
-      <div class="field"><div class="label">MOSS model</div><select id="model"><option value="OpenMOSS-Team/MOSS-Image-SFT">BF16 SFT · Turbo 4-step (default)</option><option value="OpenMOSS-Team/MOSS-Image-Base">BF16 Base</option><option value="toxicdog/MOSS-Image-SFT-Turbo-INT8-ConvRot">INT8 Turbo 8-step · experimental</option></select><small id="modelInfo">CUDA · WeeLLM streaming · 4 GB preset · text to image</small></div>
+      <div class="field"><div class="label">MOSS model</div><select id="model"><option value="toxicdog/MOSS-Image-SFT-Turbo-INT8-ConvRot">INT8 Turbo 8-step · default when installed</option><option value="OpenMOSS-Team/MOSS-Image-SFT">BF16 SFT · Turbo 4-step</option><option value="OpenMOSS-Team/MOSS-Image-Base">BF16 Base</option></select><small id="modelInfo">CUDA · WeeLLM streaming · 4 GB preset · text to image</small></div>
 <div class="privnote hidden" id="privNote">Private mode. Nothing is saved unless you download or keep it.</div>
       <div class="field hidden" id="int8ComputeRow"><div class="label">Experimental INT8 compute</div><select id="int8Compute"><option value="native">Native INT8 · Triton</option><option value="bf16">Compatibility · BF16 decode</option></select></div>
 
@@ -916,6 +916,15 @@ async function poll() {
     S.int8Ready = !!st.int8;
     $('#int8Compute option[value="native"]').disabled = !st.int8_native;
     if (!st.int8_native) $("#int8Compute").value = "bf16";
+    // BF16 entries stay available in code; Lite installs simply lack their weights.
+    $$('#model option').forEach(o => { if (o.value !== "toxicdog/MOSS-Image-SFT-Turbo-INT8-ConvRot") o.disabled = !st.bf16; });
+    $('#model option[value="toxicdog/MOSS-Image-SFT-Turbo-INT8-ConvRot"]').disabled = !st.int8;
+    if (!S.defaultApplied && st.default_model) {
+      S.defaultApplied = true;
+      $("#model").value = st.default_model;
+      if (st.int8_native) $("#int8Compute").value = "native";
+      $("#model").onchange();
+    }
     refreshTurbo(!!st.turbo);
     if (!$("#sampler").options.length) {
       $("#sampler").innerHTML = st.samplers.map(s => `<option>${s}</option>`).join("");

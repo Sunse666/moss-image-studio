@@ -10,7 +10,33 @@ import int8_config
 STUDIO = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(STUDIO)
 MODELS = ["OpenMOSS-Team/MOSS-Image-SFT", "OpenMOSS-Team/MOSS-Image-Base", int8_config.MODEL]
-DEFAULT_MODEL = MODELS[0]
+SFT_MODEL = MODELS[0]  # BF16 SFT; the only base for the Rapid-MOSS Turbo adapter
+DEFAULT_MODEL = SFT_MODEL  # fallback when the INT8 checkpoint is not installed
+
+
+def bf16_available(model=SFT_MODEL):
+    """True when every BF16 transformer shard listed in the model index exists.
+
+    Lite installs keep the shared encoder/VAE but omit these shards.
+    """
+    folder = os.path.join(ROOT, "models", model.split("/")[-1], "transformer")
+    try:
+        names = os.listdir(folder)
+        index = next((n for n in names if n.endswith(".safetensors.index.json")), None)
+        if index:
+            with open(os.path.join(folder, index), encoding="utf-8") as handle:
+                files = set(json.load(handle)["weight_map"].values())
+        else:
+            files = {n for n in names if n.endswith(".safetensors")}
+    except (OSError, ValueError, KeyError):
+        return False
+    return bool(files) and all(os.path.isfile(os.path.join(folder, n)) for n in files)
+
+
+def default_model():
+    # Native INT8 measured faster with less VRAM on the 4 GB laptop; installs
+    # without it (full BF16 downloads) keep BF16 Turbo as before.
+    return int8_config.MODEL if int8_config.available() else SFT_MODEL
 
 class Cancelled(Exception):
     pass
