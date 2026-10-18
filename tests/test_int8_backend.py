@@ -40,7 +40,7 @@ class Int8Tests(unittest.TestCase):
         server.JOBS.clear(); server.ORDER.clear()
         self.addCleanup(server.JOBS.clear); self.addCleanup(server.ORDER.clear)
         with patch.object(int8_config, 'available', return_value=True):
-            server.submit({'model': int8_config.MODEL, 'prompt': 'CPU test', 'steps': 4, 'cfg': 7, 'negative': 'unused'})
+            server.submit({'model': int8_config.MODEL, 'int8_compute': 'bf16', 'prompt': 'CPU test', 'steps': 4, 'cfg': 7, 'negative': 'unused'})
             job = next(iter(server.JOBS.values()))
             self.assertEqual((job['steps'], job['cfg'], job['negative'], job['turbo']), (8, 1, '', False))
             self.assertEqual((job['sampler'], job['scheduler'], job['flow_shift']), ('euler', 'simple', 5))

@@ -10,3 +10,5 @@ studio/settings.json
 studio/calibration.json
 studio/library.json
 .downloads/
+# Local project history, research and validation context; never publish.
+/.internal/

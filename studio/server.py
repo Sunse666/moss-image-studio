@@ -155,7 +155,7 @@ EDIT_OVERHEAD = 20  # seconds: reading the reference on the first step of an edi
 
 def calib_key(job):
     if job.get("model") == engine.int8_config.MODEL:
-        return job["mode"] + "_int8flow8"
+        return job["mode"] + ("_int8native8" if job.get('int8_compute') == 'native' else "_int8flow8")
     speed = "_rapid4" if job.get("turbo") else "_fast" if job.get("fast") else ""
     return job["mode"] + speed
 
@@ -279,6 +279,7 @@ def run_image_job(job):
         "checkpoint_repo", "checkpoint_revision", "weight_format", "compute_dtype", "backend", "experimental",
         "scheduler", "flow_shift",
         "compatibility",
+        "int8_compute", "native_int8_stats",
         "gpu", "torch_version", "peak_allocated_mb", "peak_reserved_mb")})
 
 
@@ -356,6 +357,11 @@ def submit(spec):
     int8 = model == engine.int8_config.MODEL
     if int8 and not engine.int8_config.available():
         raise ValueError("Experimental INT8 checkpoint missing or incomplete. Run ./download.ps1 -Model INT8.")
+    int8_compute = spec.get('int8_compute', 'native' if engine.int8_config.native_available() else 'bf16') if int8 else None
+    if int8 and int8_compute not in ('bf16', 'native'):
+        raise ValueError('INT8 compute must be native or bf16')
+    if int8_compute == 'native' and not engine.int8_config.native_available():
+        raise ValueError('Native INT8 requires optional requirements-int8-native.txt; select BF16 decode instead')
     text = (spec.get("prompt") or "").strip()
     prompts = split_prompts(text) if spec.get("bulk") else ([text] if text else [])
     if not prompts:
@@ -405,7 +411,7 @@ def submit(spec):
                            flow_shift=None, fast=False)
             if int8:
                 job.update(steps=8, cfg=1.0, img_cfg=None, negative="", sampler="euler",
-                           scheduler="simple", flow_shift=5.0, fast=False)
+                           scheduler="simple", flow_shift=5.0, fast=False, int8_compute=int8_compute)
             jobs.append(new_job(mode, private, ref_sizes=sizes, **job))
     return enqueue(jobs)
 
@@ -596,7 +602,7 @@ class Handler(BaseHTTPRequestHandler):
                     "jobs": jobs, "calib": load_calib(), "paused": QUEUE["paused"],
                     "cooling": max(0, round(COOL["until"] - time.time())), "cool_reason": COOL["reason"],
                     "private_mode": PRIVATE_MODE["on"], "engine_warm": ENGINE.running,
-                    "turbo": engine.turbo_available(), "int8": engine.int8_config.available(), "upscaler": engine.upscaler_available(),
+                    "turbo": engine.turbo_available(), "int8": engine.int8_config.available(), "int8_native": engine.int8_config.native_available(), "upscaler": engine.upscaler_available(),
                     "assistant": bool(engine.llama_cli()), "settings": load_settings(),
                     "models": engine.MODELS, "samplers": ["euler"], "schedulers": ["default"]})
             if path == "/api/gallery":

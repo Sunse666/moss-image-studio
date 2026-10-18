@@ -2,6 +2,7 @@
 from pathlib import Path
 import json
 import struct
+import importlib.util
 
 MODEL = "toxicdog/MOSS-Image-SFT-Turbo-INT8-ConvRot"
 REVISION = "a04afd66c4f9a3b41658a611906723b55ee40301"
@@ -10,6 +11,11 @@ SIZE = 5413707240
 SHA256 = "2a837150ea1b116d939e7516d82b1469c0afc6e311b00a196df557cd258ed223"
 DIRECTORY = Path(__file__).resolve().parents[1] / "models" / "MOSS-Image-SFT-Turbo-INT8"
 WEIGHTS = DIRECTORY / "transformer.safetensors"
+
+
+def native_available():
+    return (importlib.util.find_spec('comfy_kitchen') is not None and
+            importlib.util.find_spec('triton') is not None)
 
 
 def available():

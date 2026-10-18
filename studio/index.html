@@ -264,6 +264,7 @@ textarea.bulk { min-height: 220px; }
 
       <div class="field"><div class="label">MOSS model</div><select id="model"><option value="OpenMOSS-Team/MOSS-Image-SFT">BF16 SFT · Turbo 4-step (default)</option><option value="OpenMOSS-Team/MOSS-Image-Base">BF16 Base</option><option value="toxicdog/MOSS-Image-SFT-Turbo-INT8-ConvRot">INT8 Turbo 8-step · experimental</option></select><small id="modelInfo">CUDA · WeeLLM streaming · 4 GB preset · text to image</small></div>
 <div class="privnote hidden" id="privNote">Private mode. Nothing is saved unless you download or keep it.</div>
+      <div class="field hidden" id="int8ComputeRow"><div class="label">Experimental INT8 compute</div><select id="int8Compute"><option value="native">Native INT8 · Triton</option><option value="bf16">Compatibility · BF16 decode</option></select></div>
 
       <div class="field edit-only hidden">
         <div class="label">Images <span class="val" id="refcount">0 / 3</span></div>
@@ -600,13 +601,14 @@ function syncPreset() {
   $("#schedRow").classList.add("hidden");
 }
 function snapshot() {
-  return { model: $("#model").value, base: S.base, aspect: S.aspect, refMax: S.refMax, cw: +$("#cw").value, ch: +$("#ch").value, steps: +$("#steps").value,
+  return { model: $("#model").value, int8_compute: $("#int8Compute").value, base: S.base, aspect: S.aspect, refMax: S.refMax, cw: +$("#cw").value, ch: +$("#ch").value, steps: +$("#steps").value,
     cfg: +$("#cfg").value, imgCfg: +$("#imgCfg").value, sampler: $("#sampler").value, scheduler: $("#scheduler").value,
     shift: +$("#shift").value, fast: $("#fast").checked, th: +$("#fastThreshold").value, turbo: $("#turbo").checked,
     turboSched: S.turboSched, preview: $("#preview").checked, negative: $("#negative").value, batch: +$("#batch").value };
 }
 function restore(p) {
   if (p.model) $("#model").value = p.model;
+  $("#int8Compute").value = p.int8_compute || "bf16";
   refreshTurbo();
   S.base = p.base; S.refMax = p.refMax || 768; if (p.aspect) setAspect(p.aspect);
   $("#cw").value = p.cw || 1024; $("#ch").value = p.ch || 1024; $("#steps").value = p.steps; $("#cfg").value = p.cfg; $("#imgCfg").value = p.imgCfg || 0;
@@ -688,7 +690,7 @@ function estimate() {
   if (S.mode === "edit") refSizes().forEach(([a, b]) => memMp += a * b / 1048576);
   const turbo = $("#turbo").checked;
   const int8 = $("#model").value === "toxicdog/MOSS-Image-SFT-Turbo-INT8-ConvRot";
-  const k = S.calib[S.mode + (int8 ? "_int8flow8" : turbo ? "_rapid4" : $("#fast").checked ? "_fast" : "")] || 80;
+  const k = S.calib[S.mode + (int8 ? ($("#int8Compute").value === "native" ? "_int8native8" : "_int8flow8") : turbo ? "_rapid4" : $("#fast").checked ? "_fast" : "")] || 80;
   return { secs: k * Math.pow(mp, 1.2) * (turbo ? 4 : +$("#steps").value) + 30 + (S.mode === "edit" ? 20 : 0), mp: memMp };
 }
 function update() {
@@ -710,9 +712,12 @@ function update() {
   const { secs, mp } = estimate(), n = +$("#batch").value, count = S.bulk ? promptList().length : 1, total = Math.max(1, count) * n;
   $("#est").textContent = total > 1 ? `≈ ${fmtDur(secs)} each · ${fmtDur(secs * total)} total` : "≈ " + fmtDur(secs);
   if ($("#turbo").checked && !S.calib.gen_rapid4) $("#est").textContent = "Turbo timing pending first run";
-  if ($("#model").value === "toxicdog/MOSS-Image-SFT-Turbo-INT8-ConvRot") {
-    $("#modelInfo").textContent = S.int8Ready ? "Experimental · eight steps · CFG 1 · INT8 weights, BF16 compute" : "Optional download: download.ps1 -Model INT8 · original BF16 kept";
-    if (!S.calib.gen_int8flow8) $("#est").textContent = "Experimental INT8 timing pending first run";
+  const int8Selected = $("#model").value === "toxicdog/MOSS-Image-SFT-Turbo-INT8-ConvRot";
+  $("#int8ComputeRow").classList.toggle("hidden", !int8Selected);
+  if (int8Selected) {
+    const native = $("#int8Compute").value === "native";
+    $("#modelInfo").textContent = S.int8Ready ? (native ? "Experimental · eight steps · native INT8 compute · CFG 1" : "Experimental · eight steps · BF16 decode · CFG 1") : "Optional download: download.ps1 -Model INT8 · original BF16 kept";
+    if (!S.calib[native ? "gen_int8native8" : "gen_int8flow8"]) $("#est").textContent = "Experimental INT8 timing pending first run";
   } else $("#modelInfo").textContent = "CUDA · WeeLLM streaming · 4 GB preset · text to image";
   $("#goLabel").textContent = (S.mode === "edit" ? "Edit" : "Generate") + (total > 1 ? ` ${total}` : "");
   $("#bulkInfo").classList.toggle("hidden", !S.bulk);
@@ -885,7 +890,7 @@ async function submit() {
   if (S.mode === "edit" && !S.refs.length) { err.textContent = "Add an image to edit."; return show(err); }
   const [width, height] = outSize();
   const spec = {
-    model: $("#model").value, mode: S.mode, prompt, bulk: !!S.bulk, negative: $("#negative").value, width, height,
+    model: $("#model").value, int8_compute: $("#int8Compute").value, mode: S.mode, prompt, bulk: !!S.bulk, negative: $("#negative").value, width, height,
     steps: +$("#steps").value, cfg: +$("#cfg").value, img_cfg: S.mode === "edit" && +$("#imgCfg").value ? +$("#imgCfg").value : null,
     seed: +$("#seed").value, batch: +$("#batch").value, sampler: $("#sampler").value, scheduler: $("#scheduler").value,
     flow_shift: +$("#shift").value || null, fast: $("#fast").checked, fast_threshold: +$("#fastThreshold").value,
@@ -909,6 +914,8 @@ async function poll() {
     S.calib = st.calib; S.paused = st.paused; S.cooling = st.cooling; S.coolReason = st.cool_reason; S.assistOk = st.assistant; S.upscaleOk = st.upscaler;
     applyPrivateUI(!!st.private_mode);
     S.int8Ready = !!st.int8;
+    $('#int8Compute option[value="native"]').disabled = !st.int8_native;
+    if (!st.int8_native) $("#int8Compute").value = "bf16";
     refreshTurbo(!!st.turbo);
     if (!$("#sampler").options.length) {
       $("#sampler").innerHTML = st.samplers.map(s => `<option>${s}</option>`).join("");
@@ -1057,6 +1064,7 @@ function useForEdit(g, kind = "gallery") {
 function reuse(g, newSeed) {
   const m = g.meta;
   if (m.model) $("#model").value = m.model; if (!m.prompt) return toast("No settings saved for this image");
+  $("#int8Compute").value = m.int8_compute || "bf16";
   refreshTurbo();
   if (m.mode === "upscale") return toast("Reuse works on generated or edited images");
   setMode(m.mode === "edit" ? "edit" : "gen");
@@ -1159,6 +1167,7 @@ function openLb(kind, name) {
     ["Negative", m.negative], ["Time", m.seconds && fmtDur(m.seconds)], ["Speed", m.sec_per_it && m.sec_per_it + " s/step"], ["File", kind === "private" ? null : name]];
   const stageLabels = {imports: "Startup", model_load: "Model loading", prompt_encode: "Prompt encoding", adapter_setup: "Adapter setup", sampling: "Sampling", adapter_cleanup: "Adapter cleanup", vae_decode: "Image decoding", png_save: "PNG saving", worker_total: "Worker total", generation: "Generation"};
   if (m.prompt_cache) rows.push(["Prompt cache", m.prompt_cache]);
+  if (m.native_int8_stats) rows.push(["Native INT8 calls", m.native_int8_stats.linear_calls], ["INT8 kernel", m.native_int8_stats.backend]);
   [["Model", m.model], ["Weight format", m.weight_format], ["Compute", m.compute_dtype], ["Backend", m.backend], ["Peak allocated", m.peak_allocated_mb != null ? m.peak_allocated_mb + " MiB" : null], ["Peak reserved", m.peak_reserved_mb != null ? m.peak_reserved_mb + " MiB" : null]].forEach(row => rows.push(row));
   Object.entries(m.stage_seconds || {}).forEach(([key, seconds]) => {
     if (Number.isFinite(seconds)) rows.push([stageLabels[key] || key, seconds.toFixed(2) + " s"]);
@@ -1209,6 +1218,7 @@ buildStatic();
 $("#turbo").checked = false;
 $("#cfg").value = 3;
 $("#model").onchange = () => { refreshTurbo(); if (S.turboOk) applyPreset("turbo"); update(); };
+$("#int8Compute").onchange = update;
 $("#turbo").onchange = () => {
   if (!$("#turbo").checked) { $("#cfg").value = 3; $("#steps").value = 12; }
   update();

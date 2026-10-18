@@ -1,0 +1,3 @@
+# Optional only; install with --no-deps after the normal CUDA setup.
+# Uses Triton native INT8 to support CUDA 12.8 / older Ampere drivers.
+comfy-kitchen==0.2.38

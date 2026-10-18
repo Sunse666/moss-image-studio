@@ -180,16 +180,34 @@ Generated image details and JSON sidecars now include synchronized wall-clock `s
 
 **Optional experimental INT8 model:** the model switcher also offers [INT8 Turbo 8-step](https://huggingface.co/toxicdog/MOSS-Image-SFT-Turbo-INT8-ConvRot). Install its separate 5.41 GB transformer with `./download.ps1 -Model INT8`; this SHA256-verifies the pinned checkpoint and preserves all existing models. It shares the original SFT text encoder, tokenizer, FP32 VAE and prompt cache. **BF16 SFT + Turbo 4-step stays the default.**
 
-This experimental profile follows the checkpoint author's **eight-step Euler/simple, shift 5, CFG 1** settings with no negative prompt. It does not apply the incompatible Rapid-MOSS four-step adapter. WeeLLM streams **INT8 ConvRot storage and reconstructs BF16 layers for compute**; this is not a native INT8-kernel backend. Smaller storage does not guarantee faster generation or identical quality. Model details record the checkpoint revision, storage/compute formats, compatibility check, per-stage times and PyTorch VRAM peaks. Its timing calibration is separate from BF16 Turbo. Private requests bypass prompt caching for either model.
+This experimental profile follows the checkpoint author's **eight-step Euler/simple, shift 5, CFG 1** settings with no negative prompt. It does not apply the incompatible Rapid-MOSS four-step adapter. The compute selector offers **Native INT8 · Triton** and **Compatibility · BF16 decode**. Native mode streams INT8 block weights with FP32 scales, dynamically quantizes rotated activations, and executes INT8 tensor-core GEMMs with INT32 accumulation and BF16 outputs. Compatibility mode reconstructs BF16 layers before ordinary compute. Smaller storage does not guarantee faster generation or identical quality. Model details record the checkpoint revision, storage/compute formats, compatibility check, per-stage times and PyTorch VRAM peaks. Its timing calibration is separate from BF16 Turbo. Private requests bypass prompt caching for either model.
 
 **Verified on RTX 3050 Laptop 4 GB:** one 768 × 1024 portrait, seed 42, CFG 1 and cached prompt. All 463 required tensor shapes and 252 quantization recipes passed compatibility checks before generation.
 
 | Profile | Steps | Actual total time | Sampled peak GPU VRAM | Peak GPU temperature |
 |---|---:|---:|---:|---:|
 | BF16 Turbo (saved baseline, default) | 4 | 73.77 s | 1,967 MiB | 87°C |
-| INT8 Turbo (experimental) | 8 | 79.35 s | 1,645 MiB | 88°C |
+| INT8 compatibility / BF16 decode | 8 | 79.35 s | 1,645 MiB | 88°C |
+| **Native INT8 / Triton (experimental)** | **8** | **62.15 s** | **1,489 MiB** | **89°C** |
 
-INT8 used **16.4% less peak VRAM** but took **7.6% longer** in this comparison. Its prompt-cache hit took 0.0198 s; sampling took 54.66 s and VAE decoding 6.42 s. The actual portrait was visually reviewed and is clear, with different framing, hairstyle and background. These profiles use different checkpoints, samplers, step counts and VRAM budgets; this is not an isolated quantization benchmark or a guarantee of unchanged quality, lower heating or repeatable speed. Exactly one INT8 image was generated; the saved BF16 reference was reused. Keep BF16 Turbo for the faster verified default.
+The earlier INT8 compatibility run used **16.4% less peak VRAM** but took **7.6% longer** than BF16 Turbo. Its prompt-cache hit took 0.0198 s; sampling took 54.66 s and VAE decoding 6.42 s. The actual portrait was visually reviewed and is clear, with different framing, hairstyle and background. These profiles use different checkpoints, samplers, step counts and VRAM budgets; this is not an isolated quantization benchmark or a guarantee of unchanged quality, lower heating or repeatable speed. Exactly one compatibility-mode INT8 image was generated; the saved BF16 reference was reused. BF16 Turbo remains the established default.
+
+**Native INT8 validation (19 October):** one additional native-mode image, same checkpoint, prompt, seed, dimensions, eight steps and cache hit: **62.15 seconds including loading**, **1,489 MiB sampled system-wide peak GPU VRAM** and **89°C peak GPU temperature**. Sampling took 42.84 s, prompt-cache lookup 0.0038 s and image decoding 5.29 s. All **2,016 block projection calls** used the explicit Comfy Kitchen Triton INT8 kernel, with zero BF16 GEMM fallbacks. Compiled PTX was checked for INT8 tensor-core MMA instructions. The portrait was visually reviewed and is similar in clarity and composition to the compatibility image, with different pixels; quality equivalence across prompts is unproven.
+
+Native mode was **21.7% faster** and used **9.5% less peak VRAM** than the saved 79.35-second compatibility run. This is a single-run comparison, not a typical-speed guarantee or a cooling improvement. The **62.15-second timer excludes 11.25 seconds of separate first-time kernel preparation/tuning** using three projection checks; no warmup image was generated. Tuning results are cached across disposable workers. First use or a different size/device may require compilation or tuning again.
+
+Install the optional native kernel package after normal setup:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install --no-deps -r requirements-int8-native.txt
+```
+
+Then select the experimental INT8 model and **Native INT8 · Triton**. The tested laptop's driver 572.16 cannot run the package's CUDA 13 extension; this integration explicitly uses its Triton INT8 implementation with the existing Torch CUDA 12.8 environment. It does not update the driver or PyTorch. Native mode fails with an error if unsupported, rather than silently claiming native acceleration through BF16. BF16 decode stays available, and **BF16 SFT + Turbo 4-step remains the studio default**.
+
+<details>
+<summary>View the actual native INT8 portrait</summary>
+<p align="center"><img src="docs/int8-native-portrait.png" alt="MOSS native INT8 Triton portrait on RTX 3050 4 GB, eight steps in 62.15 seconds and 1489 MiB peak VRAM after kernel preparation" width="384"></p>
+</details>
 
 <details>
 <summary>View the actual experimental INT8 portrait</summary>

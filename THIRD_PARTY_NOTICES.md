@@ -23,3 +23,10 @@ Their author specifies eight steps, CFG 1, Euler/simple and flow shift 5.
 `studio/int8_backend.py` implements that flow schedule mathematically; it does
 not include ComfyUI source or apply the Rapid-MOSS four-step adapter. The
 existing WeeLLM ConvRot reader reconstructs BF16 block weights on demand.
+
+The optional native mode calls Comfy Kitchen 0.2.38's Triton INT8 linear
+implementation directly (INT8 dot products, INT32 accumulation). Comfy Kitchen
+is distributed under Apache-2.0; see https://github.com/Comfy-Org/comfy-kitchen.
+No package source is copied into this repository. BF16 decoding remains an
+independent compatibility option. Kernel compilation and tuning caches are
+local runtime artifacts.

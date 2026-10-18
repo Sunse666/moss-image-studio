@@ -5,17 +5,19 @@ import sys
 import time
 from pathlib import Path
 from timing import StageTimings
-from contextlib import nullcontext
+from contextlib import nullcontext, ExitStack
 import int8_config
 
 def event(**values):
     print("MOSS_EVENT " + json.dumps(values), flush=True)
 
-def main():
+def run(contexts):
     timings = StageTimings()
     spec = json.loads(sys.stdin.readline())
     model = spec["model"]
     int8 = model == int8_config.MODEL
+    native = int8 and spec.get('int8_compute', 'bf16') == 'native'
+    native_stats = {'linear_calls': 0, 'projections': 0, 'backend': 'comfy-kitchen-triton-int8', 'bf16_matmul_fallbacks': 0}
     turbo = bool(spec.get("turbo"))
     if int8:
         int8_config.require_weights()
@@ -62,11 +64,15 @@ def main():
     event(stage="Loading MOSS weights from SSD")
     if int8:
         from int8_backend import transformer_weights
-    with timings.stage("model_load"), (transformer_weights(int8_config.WEIGHTS) if int8 else nullcontext()):
-        pipe = WeeTextToImagePipeline.from_pretrained(
-            str(local), device="cuda", torch_dtype=torch.bfloat16,
-            vram_budget_gb=budget, ram_budget_gb=float(os.getenv("MOSS_RAM_GB", "2")),
-            cache_to_ram=False, vae_tile_size=int(os.getenv("MOSS_VAE_TILE", "256")))
+    with timings.stage("model_load"):
+        if native:
+            from native_int8 import native_transformer
+            contexts.enter_context(native_transformer(int8_config.WEIGHTS, native_stats))
+        with (transformer_weights(int8_config.WEIGHTS) if int8 and not native else nullcontext()):
+            pipe = WeeTextToImagePipeline.from_pretrained(
+                str(local), device="cuda", torch_dtype=torch.bfloat16,
+                vram_budget_gb=budget, ram_budget_gb=float(os.getenv("MOSS_RAM_GB", "2")),
+                cache_to_ram=False, vae_tile_size=int(os.getenv("MOSS_VAE_TILE", "256")))
     def progress(iterable=None, total=None):
         started = time.monotonic()
         count = len(iterable)
@@ -108,8 +114,9 @@ def main():
             image = generate(pipe._pipeline, spec['prompt'], spec['width'], spec['height'],
                              spec['seed'], progress, timings, encode_prompt)
             event(checkpoint_repo=int8_config.MODEL, checkpoint_revision=int8_config.REVISION,
-                  weight_format='INT8 ConvRot', compute_dtype='BF16 streamed dequantization',
-                  backend='weellm-int8-flow8', experimental=True)
+                  weight_format='INT8 ConvRot', compute_dtype='INT8 GEMM + INT32 accumulation, BF16 activations' if native else 'BF16 streamed dequantization',
+                  backend='weellm-triton-int8-flow8' if native else 'weellm-int8-flow8', experimental=True,
+                  native_int8_stats=native_stats if native else None)
         else:
             from rapid_moss import generate
             image = generate(pipe._pipeline, turbo_config.DIRECTORY, spec["prompt"],
@@ -132,6 +139,11 @@ def main():
     event(stage_seconds=timings.finish(), gpu=torch.cuda.get_device_name(0), torch_version=torch.__version__,
           peak_allocated_mb=round(torch.cuda.max_memory_allocated()/2**20),
           peak_reserved_mb=round(torch.cuda.max_memory_reserved()/2**20))
+
+def main():
+    with ExitStack() as contexts:
+        run(contexts)
+
 
 if __name__ == "__main__":
     main()
