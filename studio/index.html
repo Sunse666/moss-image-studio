@@ -294,7 +294,7 @@ textarea.bulk { min-height: 220px; }
           <button data-p="balanced" title="Full model at 768 px, 30 steps">Balanced</button>
           <button data-p="quality" title="Full model at 1024 px, 50 steps. Slow, for finals.">Quality</button>
         </div>
-        <small id="turboStatus">Turbo setup: run download.ps1 -Model Turbo. Hardware validation pending.</small>
+        <small id="turboStatus">Turbo is the default when its adapter is installed.</small>
         <div class="presetrow">
           <select id="myPresets" title="Your saved settings"><option value="">My presets</option></select>
           <button class="iconbtn" id="savePreset" title="Save current settings as a preset">Save</button>
@@ -373,8 +373,8 @@ textarea.bulk { min-height: 220px; }
           <label class="toggle" title="A desktop notification when a job finishes and this tab is in the background. Private jobs don't show their prompt."><span>Notify when done</span>
             <span class="switch"><input type="checkbox" id="notify"><span></span></span></label>
           <div class="field" title="Optional rest between GPU jobs.">
-            <div class="label">Cool-down</div>
-            <div class="seg" id="cooldown"><button data-v="auto" class="on">Auto</button><button data-v="off">Off</button><button data-v="30">30 s</button><button data-v="60">60 s</button><button data-v="90">90 s</button></div>
+            <div class="label">Queue delay</div>
+            <div class="seg" id="cooldown"><button data-v="off" class="on">Off</button><button data-v="30">30 s</button><button data-v="60">60 s</button><button data-v="90">90 s</button></div>
           </div>
           <div class="field" title="The CUDA worker releases GPU memory after every job.">
             <div class="label">Engine</div>
@@ -549,22 +549,27 @@ const PRESETS = {
 
 const S = {
   mode: "gen", aspect: "1:1", base: 512, refMax: 1024, refs: [], mask: null, turboSched: "matched",
-  private: false, turboReady: false, turboOk: false, calib: {}, jobs: [], gallery: [], privItems: [], polled: false,
+  private: false, turboReady: false, turboOk: false, defaultsApplied: false, calib: {}, jobs: [], gallery: [], privItems: [], polled: false,
   lb: null, view: null, cmp: null, seedLocked: false, preset: "turbo",
   filter: { q: "", type: "all", when: "any" }, selecting: false, sel: new Set(),
   library: { presets: {}, favorites: [] }, assistJobs: new Set(), paused: false,
 };
 
 // ---------- presets ----------
+function applyDefaultPreset() {
+  if (S.defaultsApplied) return;
+  S.defaultsApplied = true;
+  applyPreset(S.turboOk ? "turbo" : "draft");
+}
 function refreshTurbo(ready = S.turboReady) {
   S.turboReady = ready;
   S.turboOk = ready && $("#model").value === "OpenMOSS-Team/MOSS-Image-SFT";
   const button = $('#presets [data-p="turbo"]');
   button.disabled = !S.turboOk;
   $("#turbo").disabled = !S.turboOk;
-  button.title = S.turboOk ? "Four Rapid-MOSS steps with WeeLLM streaming; performance not yet measured" : ready ? "Select MOSS-Image SFT to use Turbo" : "Run download.ps1 -Model Turbo to install the adapter";
+  button.title = S.turboOk ? "Four Rapid-MOSS steps with WeeLLM streaming" : ready ? "Select MOSS-Image SFT to use Turbo" : "Run download.ps1 -Model Turbo to install the adapter";
   $("#turboRow").classList.toggle("locked", !S.turboOk);
-  $("#turboStatus").textContent = S.turboOk ? "Turbo adapter ready · four steps · hardware validation pending" : ready ? "Turbo requires MOSS-Image SFT" : "Turbo setup: run download.ps1 -Model Turbo";
+  $("#turboStatus").textContent = S.turboOk ? "Turbo ready · four steps · default preset" : ready ? "Turbo requires MOSS-Image SFT" : "Turbo setup: run download.ps1 -Model Turbo";
   if (!S.turboOk && $("#turbo").checked) applyPreset("draft");
 }
 function applyPreset(k) {
@@ -1140,7 +1145,7 @@ function openLb(kind, name) {
   hide($("#lbPrompt2")); show($("#lbBtns"));
   const rows = [["Size", m.width && `${m.width} × ${m.height}`], ["Seed", m.mode === "upscale" ? null : m.seed], ["Steps", m.mode === "upscale" ? null : m.steps], ["CFG", m.mode === "upscale" ? null : m.cfg], ["Image CFG", m.img_cfg],
     ["Sampler", m.sampler && m.mode !== "upscale" && `${m.sampler} / ${m.scheduler || "default"}`], ["Fast mode", m.fast ? `on (${m.fast_threshold})` : null],
-    ["Turbo", m.turbo && m.mode !== "upscale" ? `4-step LoRA, ${m.turbo_schedule === "matched" ? "matched" : "original"} schedule` : null], ["Mask", m.mask ? "yes" : null],
+    ["Turbo", m.turbo && m.mode !== "upscale" ? "Rapid-MOSS four-step data-space sampler" : null], ["Mask", m.mask ? "yes" : null],
     ["Negative", m.negative], ["Time", m.seconds && fmtDur(m.seconds)], ["Speed", m.sec_per_it && m.sec_per_it + " s/step"], ["File", kind === "private" ? null : name]];
   $("#lbMeta").innerHTML = rows.filter(r => r[1] != null && r[1] !== "").map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join("");
   const hasBefore = (m.mode === "edit" || m.mode === "upscale") && m.refs && m.refs.length;
@@ -1369,7 +1374,7 @@ function applyHash() {
   if (h.get("prompt")) $("#prompt").value = h.get("prompt");
   if (h.get("view")) openLb("gallery", h.get("view"));
 }
-Promise.all([loadGallery(), loadPrivate(), api("/api/library").then(l => { S.library = l; renderPresets(); })]).then(async () => { await poll(); applyHash(); renderRun(); update(); });
+Promise.all([loadGallery(), loadPrivate(), api("/api/library").then(l => { S.library = l; renderPresets(); })]).then(async () => { await poll(); applyDefaultPreset(); applyHash(); renderRun(); update(); });
 </script>
 </body>
 </html>

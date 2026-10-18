@@ -21,10 +21,14 @@ vm.runInNewContext(`
   applyPreset('turbo');
   assert.equal($('#turbo').checked, false);
   refreshTurbo(true);
-  applyPreset('turbo');
+  applyDefaultPreset();
   assert.equal($('#turbo').checked, true);
   assert.equal(+$('#steps').value, 4);
   assert.equal(+$('#cfg').value, 1);
+  applyPreset('balanced');
+  applyDefaultPreset(); // Polling/default initialization must not override a manual choice.
+  assert.equal(+$('#steps').value, 30);
+  applyPreset('turbo');
   $('#model').value = 'OpenMOSS-Team/MOSS-Image-Base';
   refreshTurbo();
   assert.equal($('#presets [data-p="turbo"]').disabled, true);

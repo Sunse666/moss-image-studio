@@ -151,6 +151,35 @@ class RapidTests(unittest.TestCase):
         self.assertTrue(all(p.is_meta for block in model.layers for p in block.parameters()))
         self.assertEqual(model.shared_block_modulation.weight.dtype, torch.float32)
 
+    def test_api_default_turbo_and_explicit_normal_override(self):
+        server.JOBS.clear()
+        server.ORDER.clear()
+        try:
+            with patch.object(server.engine, "turbo_available", return_value=True):
+                server.submit({"prompt": "CPU validation only"})
+                server.submit({"prompt": "CPU validation only", "turbo": False, "steps": 30})
+            jobs = list(server.JOBS.values())
+            self.assertEqual([(j['turbo'], j['steps']) for j in jobs], [(True, 4), (False, 30)])
+        finally:
+            server.JOBS.clear()
+            server.ORDER.clear()
+
+    def test_legacy_auto_cooldown_migrates_to_off(self):
+        with patch.object(server, 'read_json', return_value={'cooldown': 'auto'}):
+            self.assertEqual(server.load_settings()['cooldown'], 'off')
+            with patch.object(server.time, 'time', side_effect=AssertionError('no delay expected')):
+                server.plan_cooldown({})
+
+    def test_default_download_selects_both_sft_and_adapter_without_network(self):
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        import download
+        with patch.object(sys, 'argv', ['download.py']), \
+                patch.object(download, 'download_model') as model, \
+                patch.object(download, 'download_turbo') as adapter:
+            download.main()
+        model.assert_called_once_with('SFT', 32, 4)
+        adapter.assert_called_once_with(32)
+
     def test_api_enforces_turbo_settings_and_rejects_missing_adapter_or_base(self):
         server.JOBS.clear()
         server.ORDER.clear()

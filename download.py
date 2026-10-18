@@ -25,16 +25,8 @@ def download_turbo(workers):
     print('Downloaded and verified Turbo 4-step adapter. Also requires MOSS-Image-SFT.')
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('model', nargs='?', choices=['SFT', 'Base', 'Turbo'], default='SFT')
-    parser.add_argument('--workers', type=int, default=32)
-    parser.add_argument('--parallel-files', type=int, default=4)
-    args = parser.parse_args()
-    if args.model == 'Turbo':
-        download_turbo(args.workers)
-        return
-    name = 'MOSS-Image-' + args.model
+def download_model(variant, workers, parallel_files):
+    name = 'MOSS-Image-' + variant
     repo = 'OpenMOSS-Team/' + name
     root = Path(__file__).resolve().parent / 'models' / name
     info = HfApi().model_info(repo, files_metadata=True)
@@ -45,17 +37,29 @@ def main():
         if not destination.is_relative_to(root.resolve()):
             raise ValueError('Invalid model file path')
         path = fetch(f'https://huggingface.co/{repo}/resolve/{info.sha}/{file.rfilename}',
-                     destination, workers=max(1, min(32, args.workers)))
+                     destination, workers=max(1, min(32, workers)))
         with path.open('rb') as source:
             digest = hashlib.file_digest(source, 'sha256').hexdigest()
         if not file.lfs or digest != file.lfs.sha256:
             raise RuntimeError('Weight checksum mismatch: ' + str(path))
         print('Verified', file.rfilename, flush=True)
     files = [file for file in info.siblings if file.rfilename.endswith('.safetensors')]
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, min(4, args.parallel_files))) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, min(4, parallel_files))) as executor:
         list(executor.map(download, files))
     (root / '.download-complete').write_text(info.sha, encoding='utf-8')
     print('Downloaded and verified', name)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('model', nargs='?', choices=['Default', 'SFT', 'Base', 'Turbo'], default='Default')
+    parser.add_argument('--workers', type=int, default=32)
+    parser.add_argument('--parallel-files', type=int, default=4)
+    args = parser.parse_args()
+    if args.model != 'Turbo':
+        download_model('SFT' if args.model == 'Default' else args.model, args.workers, args.parallel_files)
+    if args.model in ('Default', 'Turbo'):
+        download_turbo(args.workers)
 
 
 if __name__ == '__main__':

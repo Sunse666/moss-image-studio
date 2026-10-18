@@ -183,13 +183,15 @@ def learn_speed(job):
 
 # ---------------------------------------------------------------- settings and library
 
-SETTINGS_DEFAULT = {"idle_minutes": 10, "cooldown": "auto"}
-COOLDOWN_CHOICES = ("auto", "off", "30", "60", "90")
+SETTINGS_DEFAULT = {"idle_minutes": 10, "cooldown": "off"}
+COOLDOWN_CHOICES = ("off", "30", "60", "90")
 
 
 def load_settings():
     s = dict(SETTINGS_DEFAULT)
     s.update(read_json(SETTINGS, {}))
+    if s.get("cooldown") not in COOLDOWN_CHOICES:
+        s["cooldown"] = "off"  # Migrate legacy automatic cooldown settings.
     return s
 
 
@@ -211,41 +213,15 @@ WAKE = threading.Event()
 QUEUE = {"paused": False}
 # Private mode lives on the server so a page reload or a second tab can't silently turn it off.
 PRIVATE_MODE = {"on": False}
-# Optional rest between queued jobs
-# and costs little time, since a throttled step can take twice as long anyway.
+# Optional user-selected fixed delay between queued jobs; off by default.
 COOL = {"until": 0.0, "reason": ""}
 
 
-def throttle_ratio(job):
-    """How much slower this job's steps were than the fastest this GPU has done in the same mode."""
-    spi = job.get("sec_per_it")
-    if not spi or job["mode"] not in GEN_MODES or (job.get("total") or 0) < 3:
-        return None
-    norm = spi / (work_mp(job) ** 1.2)
-    key = "cool_" + calib_key(job)
-    c = read_json(CALIB, {})
-    best = c.get(key)
-    if (best is None or norm < best) and not job.get("private"):
-        c[key] = round(norm, 3)
-        write_json(CALIB, c)
-    return norm / best if best else 1.0
-
-
 def plan_cooldown(job):
-    mode = load_settings().get("cooldown", "auto")
+    mode = load_settings().get("cooldown", "off")
     if mode == "off":
         return
-    spent = job["finished"] - job["started"]
-    if mode == "auto":
-        r = throttle_ratio(job)
-        if not r or r < 1.3:
-            return
-        # measured: 60 s rests didn't stop the slowdown, 3 minutes brought steps back to cool speed
-        rest = min(180, max(60, 2 * spent * (r - 1)))
-        reason = "Steps ran %d%% slower than when cool" % round((r - 1) * 100)
-    else:
-        rest, reason = int(mode), "Rest between jobs"
-    COOL.update(until=time.time() + rest, reason=reason)
+    COOL.update(until=time.time() + int(mode), reason="User-selected queue delay")
 
 PUBLIC_KEYS = ("id", "mode", "state", "prompt", "width", "height", "steps", "seed", "step", "total",
                "sec_per_it", "stage", "created", "started", "finished", "eta", "estimate", "output",
@@ -386,7 +362,7 @@ def submit(spec):
         raise ValueError("Add at least one image to edit")
     mask = safe_name(spec["mask"]) if spec.get("mask") and mode == "edit" else None
     seed_in = int(spec.get("seed", -1))  # a fixed seed is shared by every prompt, so prompts compare fairly
-    turbo = bool(spec.get("turbo"))
+    turbo = bool(spec.get("turbo", model == engine.DEFAULT_MODEL and engine.turbo_available()))
     if turbo:
         if model != engine.DEFAULT_MODEL:
             raise ValueError("Turbo 4-step requires MOSS-Image-SFT; select SFT first")
