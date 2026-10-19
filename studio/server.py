@@ -63,7 +63,7 @@ def write_json(path, data):
 
 def wipe_private():
     shutil.rmtree(PRIVATE, ignore_errors=True)
-    os.makedirs(PRIVATE)
+    os.makedirs(PRIVATE, exist_ok=True)  # a locked file must not turn discard into an error
 
 
 def wipe_tmp():
@@ -185,7 +185,8 @@ def learn_speed(job):
 
 # ---------------------------------------------------------------- settings and library
 
-SETTINGS_DEFAULT = {"idle_minutes": 10, "cooldown": "off"}
+SETTINGS_DEFAULT = {"idle_minutes": 10, "cooldown": "off", "warm_minutes": 5}
+WARM_CHOICES = (0, 2, 5, 10, 15, 30)  # minutes a native INT8 worker stays loaded; 0 = off
 COOLDOWN_CHOICES = ("off", "30", "60", "90")
 
 
@@ -194,11 +195,14 @@ def load_settings():
     s.update(read_json(SETTINGS, {}))
     if s.get("cooldown") not in COOLDOWN_CHOICES:
         s["cooldown"] = "off"  # Migrate legacy automatic cooldown settings.
+    if s.get("warm_minutes") not in WARM_CHOICES:
+        s["warm_minutes"] = SETTINGS_DEFAULT["warm_minutes"]
     return s
 
 
 def apply_settings(s):
     ENGINE.idle_seconds = max(1, int(s.get("idle_minutes", 10))) * 60
+    ENGINE.warm_seconds = int(s.get("warm_minutes", 5)) * 60
 
 
 def load_library():
@@ -257,7 +261,9 @@ def run_image_job(job):
     private = job["private"]
     name = "%s_" % job["id"] + "%s_%s_%dx%d_s%d.png" % (stamp, job["mode"], job["width"], job["height"], job["seed"])
     out_path = os.path.join(PRIVATE if private else OUTPUTS, name)
-    job.update(state="running", started=time.time(), step=0, engine="cold", stage="Loading MOSS")
+    warm = ENGINE.will_reuse(job)
+    job.update(state="running", started=time.time(), step=0, engine="warm" if warm else "cold",
+               stage="Encoding prompt" if warm else "Loading MOSS")
     log = open_log(job, name)
     try:
         ENGINE.generate(job, out_path, log)
@@ -531,6 +537,29 @@ def discard_private(name=None):
     drop_jobs(lambda j: j.get("private") and j["state"] not in ("queued", "running", "starting"))
 
 
+def clear_finished():
+    """Remove finished jobs from the queue list, private ones included.
+
+    Private results stay in the private tray (it lists their jobs) until discarded.
+    """
+    finished = ("done", "error", "cancelled")
+    drop_jobs(lambda j: j["state"] in finished and not j.get("private"))
+    with LOCK:
+        for job in JOBS.values():
+            if job.get("private") and job["state"] in finished:
+                job["queue_hidden"] = True
+
+
+def end_private_session():
+    """Leaving private mode erases the session: pending private jobs and results."""
+    with LOCK:
+        pending = [i for i in ORDER if JOBS[i].get("private") and JOBS[i]["state"] in ("queued", "starting", "running")]
+    for job_id in pending:
+        cancel(job_id)
+    discard_private()
+    drop_jobs(lambda j: j.get("private") and j["state"] == "cancelled")
+
+
 def save_upload(data, filename, private=False, kind="image"):
     b64 = data.split(",", 1)[1]
     ext = os.path.splitext(filename or "")[1].lower() or ".img"
@@ -601,11 +630,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_file(os.path.join(STUDIO, "index.html"))
             if path == "/api/state":
                 with LOCK:
-                    jobs = [public(JOBS[i]) for i in ORDER[-60:]]
+                    jobs = [public(JOBS[i]) for i in ORDER if not JOBS[i].get("queue_hidden")][-60:]
                 return self.send_json({
                     "jobs": jobs, "calib": load_calib(), "paused": QUEUE["paused"],
                     "cooling": max(0, round(COOL["until"] - time.time())), "cool_reason": COOL["reason"],
-                    "private_mode": PRIVATE_MODE["on"], "engine_warm": ENGINE.running,
+                    "private_mode": PRIVATE_MODE["on"], "engine_warm": ENGINE.running, "engine": ENGINE.status(),
                     "turbo": engine.turbo_available(), "int8": engine.int8_config.available(), "bf16": engine.bf16_available(),
                     "default_model": engine.default_model(), "int8_native": engine.int8_config.native_available(), "upscaler": engine.upscaler_available(),
                     "assistant": bool(engine.llama_cli()), "settings": load_settings(),
@@ -638,7 +667,9 @@ class Handler(BaseHTTPRequestHandler):
                 private = PRIVATE_MODE["on"] or bool(b.get("private"))
                 return self.send_json(save_upload(b["data"], b.get("filename"), private, b.get("kind", "image")))
             if path == "/api/private/mode":
-                PRIVATE_MODE["on"] = bool(b.get("on"))
+                was_on, PRIVATE_MODE["on"] = PRIVATE_MODE["on"], bool(b.get("on"))
+                if was_on and not PRIVATE_MODE["on"]:
+                    end_private_session()
                 return self.send_json({"on": PRIVATE_MODE["on"]})
             if path == "/api/private/keep":
                 return self.send_json({"name": keep_private(b["name"])})
@@ -654,7 +685,7 @@ class Handler(BaseHTTPRequestHandler):
                 WAKE.set()
                 return self.send_json({"paused": QUEUE["paused"]})
             if path == "/api/clear":
-                drop_jobs(lambda j: j["state"] in ("done", "error", "cancelled") and not j.get("private"))
+                clear_finished()
                 return self.send_json({"ok": True})
             if path == "/api/settings":
                 s = load_settings()
@@ -662,6 +693,8 @@ class Handler(BaseHTTPRequestHandler):
                     s["idle_minutes"] = max(1, min(120, int(b["idle_minutes"])))
                 if b.get("cooldown") in COOLDOWN_CHOICES:
                     s["cooldown"] = b["cooldown"]
+                if "warm_minutes" in b and int(b["warm_minutes"]) in WARM_CHOICES:
+                    s["warm_minutes"] = int(b["warm_minutes"])
                 write_json(SETTINGS, s)
                 apply_settings(s)
                 return self.send_json(s)

@@ -377,11 +377,11 @@ textarea.bulk { min-height: 220px; }
             <div class="label">Queue delay</div>
             <div class="seg" id="cooldown"><button data-v="off" class="on">Off</button><button data-v="30">30 s</button><button data-v="60">60 s</button><button data-v="90">90 s</button></div>
           </div>
-          <div class="field" title="The CUDA worker releases GPU memory after every job.">
+          <div class="field" title="Keep warm reuses the loaded native INT8 model for the next image, skipping startup and model loading. A warm engine holds some GPU memory and RAM until it times out or you unload it. Off releases everything after each image.">
             <div class="label">Engine</div>
-            <div class="enginerow"><span class="dotw" id="engDot"></span><span id="engTxt">Unloaded</span>
-              <span style="margin-left:auto">keep for</span>
-              <select id="idleMin"><option>2</option><option>5</option><option selected>10</option><option>20</option><option>30</option><option>60</option></select><span>min</span>
+            <div class="enginerow"><span class="dotw" id="engDot"></span><span id="engTxt">Cold</span>
+              <span style="margin-left:auto">keep warm</span>
+              <select id="warmMin"><option value="0">Off</option><option value="2">2</option><option value="5" selected>5</option><option value="10">10</option><option value="15">15</option><option value="30">30</option></select><span>min</span>
               <button class="linkbtn" id="unload">Unload</button></div>
           </div>
         </div>
@@ -486,6 +486,12 @@ textarea.bulk { min-height: 220px; }
   </div>
 </div>
 
+<div class="modal" id="askModal" role="dialog" aria-modal="true" aria-labelledby="askMsg">
+  <div class="bar2" style="flex-direction:column;max-width:420px;padding:16px 18px;gap:14px">
+    <div id="askMsg" style="font-size:14px;color:var(--text);text-align:center"></div>
+    <div style="display:flex;gap:8px;justify-content:center"><button id="askCancel">Cancel</button><button class="primary" id="askOk">OK</button></div>
+  </div>
+</div>
 <div class="modal" id="maskModal">
   <div class="bar2">
     <label>Brush <input type="range" id="brush" min="8" max="200" value="48"></label>
@@ -528,6 +534,14 @@ const api = async (path, opts = {}) => {
   return j;
 };
 const post = (path, body) => api(path, { method: "POST", body: JSON.stringify(body || {}) });
+// In-page confirmation: native confirm() is blocked in some embedded browsers.
+const ask = (message, okLabel = "OK") => new Promise(resolve => {
+  const m = $("#askModal"); $("#askMsg").textContent = message; $("#askOk").textContent = okLabel;
+  const done = value => { m.classList.remove("open"); $("#askOk").onclick = $("#askCancel").onclick = null; document.removeEventListener("keydown", key); resolve(value); };
+  const key = e => { if (e.key === "Escape") done(false); };
+  $("#askOk").onclick = () => done(true); $("#askCancel").onclick = () => done(false);
+  document.addEventListener("keydown", key); m.classList.add("open"); $("#askOk").focus();
+});
 const toast = msg => { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2400); };
 const fmtDur = s => { s = Math.max(0, Math.round(s)); if (s < 60) return s + "s"; const m = Math.floor(s / 60), r = s % 60; return m < 60 ? `${m}m ${String(r).padStart(2, "0")}s` : `${Math.floor(m / 60)}h ${m % 60}m`; };
 const escapeHtml = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -929,11 +943,12 @@ async function poll() {
     if (!$("#sampler").options.length) {
       $("#sampler").innerHTML = st.samplers.map(s => `<option>${s}</option>`).join("");
       $("#scheduler").innerHTML = st.schedulers.map(s => `<option>${s}</option>`).join("");
-      $("#idleMin").value = String(st.settings.idle_minutes);
+      $("#warmMin").value = String(st.settings.warm_minutes ?? 5);
       $$("#cooldown button").forEach(b => b.classList.toggle("on", b.dataset.v === String(st.settings.cooldown)));
     }
-    $("#engDot").classList.toggle("on", st.engine_warm);
-    $("#engTxt").textContent = st.engine_warm ? "Running" : "Unloaded";
+    const eng = st.engine || { state: st.engine_warm ? "busy" : "cold", idle_left: 0 };
+    $("#engDot").classList.toggle("on", eng.state !== "cold");
+    $("#engTxt").textContent = eng.state === "warm" ? `Warm · ${fmtDur(eng.idle_left)} left` : eng.state === "busy" ? "Busy" : "Cold";
     $("#pauseQ").textContent = st.paused ? "Resume" : "Pause";
     const prev = new Map(S.jobs.map(j => [j.id, j.state]));
     S.jobs = st.jobs;
@@ -1089,7 +1104,7 @@ function reuse(g, newSeed) {
   closeLb(); update(); toast(newSeed ? "Settings loaded with a new seed" : "Settings loaded");
 }
 async function deleteImages(names) {
-  if (!confirm(names.length > 1 ? `Delete ${names.length} images permanently? Their settings and logs are removed too.` : "Delete this image permanently? Its settings and logs are removed too.")) return false;
+  if (!await ask(names.length > 1 ? `Delete ${names.length} images permanently? Their settings and logs are removed too.` : "Delete this image permanently? Its settings and logs are removed too.", "Delete")) return false;
   for (const n of names) { await api(`/api/gallery/${encodeURIComponent(n)}`, { method: "DELETE" }); forget(n); }
   await loadGallery(); renderRun(); toast(names.length > 1 ? `Deleted ${names.length}` : "Deleted");
   return true;
@@ -1126,10 +1141,17 @@ function applyPrivateUI(on) {
   loadPrivate().then(renderRun);
 }
 async function setPrivate(on) {
+  // Leaving private mode erases the private session (results and pending private jobs).
+  const pending = S.jobs.filter(j => j.private && ["queued", "starting", "running"].includes(j.state)).length;
+  if (!on && (S.privItems.length || pending) && !await ask(
+      `Leave private mode? This erases ${S.privItems.length} private image${S.privItems.length === 1 ? "" : "s"}` +
+      (pending ? ` and cancels ${pending} private job${pending === 1 ? "" : "s"}` : "") + ". Use Keep first to save any you want.", "Erase and leave")) return;
   await post("/api/private/mode", { on });
+  if (!on && S.lb && S.lb.kind === "private") closeLb();
   S.refs = []; S.mask = null; renderRefs();
   applyPrivateUI(on);
-  toast(on ? "Private mode on" : "Private mode off");
+  if (!on) { await loadPrivate(); poll(); }
+  toast(on ? "Private mode on" : "Private mode off · session erased");
 }
 async function keepPrivate(name) {
   await post("/api/private/keep", { name });
@@ -1257,7 +1279,7 @@ $("#savePreset").onclick = e => {
   };
 };
 $("#delPreset").onclick = async () => {
-  const n = $("#myPresets").value; if (!n || !confirm(`Delete preset "${n}"?`)) return;
+  const n = $("#myPresets").value; if (!n || !await ask(`Delete preset "${n}"?`, "Delete")) return;
   const p = { ...S.library.presets }; delete p[n]; await saveLibrary({ presets: p }); $("#myPresets").value = ""; renderPresets();
 };
 $("#favBtn").onclick = () => {
@@ -1279,7 +1301,7 @@ $("#notify").onchange = async () => {
   }
   pref("notify", $("#notify").checked ? "1" : "0");
 };
-$("#idleMin").onchange = () => post("/api/settings", { idle_minutes: +$("#idleMin").value }).then(() => toast("Saved"));
+$("#warmMin").onchange = () => post("/api/settings", { warm_minutes: +$("#warmMin").value }).then(() => { toast(+$("#warmMin").value ? "Keep warm saved" : "Keep warm off"); poll(); });
 $("#cooldown").onclick = e => {
   const b = e.target.closest("button"); if (!b) return;
   $$("#cooldown button").forEach(x => x.classList.toggle("on", x === b));
@@ -1294,7 +1316,7 @@ $("#queue").onclick = e => {
   const m = e.target.closest("[data-move]"); if (m) post(`/api/jobs/${m.dataset.id}/${m.dataset.move}`).then(poll);
 };
 $("#discardAll").onclick = async () => {
-  if (S.privItems.length && !confirm("Erase all private results?")) return;
+  if (S.privItems.length && !await ask("Erase all private results? This cannot be undone.", "Discard all")) return;
   await post("/api/private/discard", {});
   if (S.lb && S.lb.kind === "private") closeLb();
   S.view = null; S.refs = S.refs.filter(r => !r.private); renderRefs(); await loadPrivate(); poll(); toast("Private session erased");

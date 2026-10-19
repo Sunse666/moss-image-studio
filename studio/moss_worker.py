@@ -1,4 +1,9 @@
-"""MOSS inference in a disposable process; no GPU dependencies in the web server."""
+"""MOSS inference in a separate process; no GPU dependencies in the web server.
+
+One-shot by default. A native INT8 job may set keep_warm: the process then
+reports job_done and serves further jobs of the same profile from stdin with
+the model, kernels and imports already loaded, until stdin closes.
+"""
 import json
 import os
 import sys
@@ -11,32 +16,67 @@ import int8_config
 def event(**values):
     print("MOSS_EVENT " + json.dumps(values), flush=True)
 
-def run(contexts):
-    timings = StageTimings()
-    spec = json.loads(sys.stdin.readline())
-    model = spec["model"]
-    int8 = model == int8_config.MODEL
-    native = int8 and spec.get('int8_compute', 'bf16') == 'native'
-    native_stats = {'linear_calls': 0, 'projections': 0, 'backend': 'comfy-kitchen-triton-int8', 'bf16_matmul_fallbacks': 0}
-    turbo = bool(spec.get("turbo"))
-    lite_check = False
-    if int8:
-        int8_config.require_weights()
-        try:
-            event(compatibility=int8_config.validate_checkpoint())
-        except int8_config.OriginalHeadersMissing:
-            lite_check = True  # no BF16 shards: validate against the architecture after imports
+def profile(spec):
+    """Settings that fix what the loaded process can serve."""
+    int8 = spec["model"] == int8_config.MODEL
+    return (spec["model"], spec.get('int8_compute', 'bf16') if int8 else None, bool(spec.get("turbo")))
+
+
+def check_job(spec):
+    model, _, turbo = profile(spec)
+    if model == int8_config.MODEL:
         if turbo or spec['steps'] != 8 or spec['cfg'] != 1 or spec['negative']:
             raise ValueError('INT8 uses its own eight-step Euler/simple sampler, CFG 1 and no negative prompt')
     if turbo:
-        import turbo_config
-        turbo_config.require_adapter()
         if model != "OpenMOSS-Team/MOSS-Image-SFT":
             raise ValueError("Turbo 4-step requires MOSS-Image-SFT")
         if spec["steps"] != 4 or spec["cfg"] != 1 or spec["negative"]:
             raise ValueError("Turbo requires four steps, CFG 1, and no negative prompt")
     if model not in ("OpenMOSS-Team/MOSS-Image-SFT", "OpenMOSS-Team/MOSS-Image-Base", int8_config.MODEL):
         raise ValueError("Unsupported model")
+
+
+def reset_for_next_job(pipe, native_stats):
+    """Undo per-job state so a warm process behaves like a fresh one.
+
+    The VAE decode hook evicted every transformer block to meta, so WeeLLM's
+    pinned-block bookkeeping must be recalibrated on the next first pass.
+    """
+    transformer = pipe._pipeline.transformer
+    streamer = getattr(transformer, '_weellm_streamer', None)
+    if streamer is not None:
+        with streamer._lock:
+            futures = list(streamer._h2d_futures.values()) + list(streamer._disk_futures.values())
+            streamer._h2d_futures.clear()
+            streamer._disk_futures.clear()
+            streamer._pinned_blocks.clear()
+            streamer._cache_budget_bytes = 0
+            streamer._calibration_done = False
+        for future in futures:
+            future.cancel()
+    for key, value in native_stats.items():
+        if key != 'projections' and isinstance(value, int):
+            native_stats[key] = 0
+
+
+def run(contexts):
+    timings = StageTimings()
+    spec = json.loads(sys.stdin.readline())
+    model, _, turbo = profile(spec)
+    int8 = model == int8_config.MODEL
+    native = int8 and spec.get('int8_compute', 'bf16') == 'native'
+    native_stats = {'linear_calls': 0, 'projections': 0, 'backend': 'comfy-kitchen-triton-int8', 'bf16_matmul_fallbacks': 0}
+    lite_check = False
+    check_job(spec)
+    if int8:
+        int8_config.require_weights()
+        try:
+            event(compatibility=int8_config.validate_checkpoint())
+        except int8_config.OriginalHeadersMissing:
+            lite_check = True  # no BF16 shards: validate against the architecture after imports
+    if turbo:
+        import turbo_config
+        turbo_config.require_adapter()
     local = Path(__file__).resolve().parent.parent / "models" / ("MOSS-Image-SFT" if int8 else model.split("/")[-1])
     if not (local / "model_index.json").exists():
         raise RuntimeError("Model not downloaded. Run download.ps1 first for " + model)
@@ -86,6 +126,36 @@ def run(contexts):
                 str(local), device="cuda", torch_dtype=torch.bfloat16,
                 vram_budget_gb=budget, ram_budget_gb=float(os.getenv("MOSS_RAM_GB", "2")),
                 cache_to_ram=False, vae_tile_size=int(os.getenv("MOSS_VAE_TILE", "256")))
+    if native and spec.get("keep_warm"):
+        # WeeLLM evicts the text encoder's resident tensors (incl. computed rotary
+        # buffers) to meta before sampling and cannot reload them, so a warm
+        # worker keeps it loaded (~1.9 GB RAM embeddings, ~0.1 GB VRAM) for new prompts.
+        pipe._pipeline.transformer._weellm_te_evicted = True
+    while True:
+        serve(spec, timings, pipe, local, int8, native, turbo, budget, native_stats, torch)
+        if not (native and spec.get("keep_warm")):
+            return
+        # Warm: keep the model loaded and wait for the next job of this profile.
+        if hasattr(torch._C, "_host_emptyCache"):
+            torch._C._host_emptyCache()  # release cached pinned staging buffers while idle
+        event(job_done=True)
+        line = sys.stdin.readline()
+        if not line:
+            return
+        next_spec = json.loads(line)
+        if profile(next_spec) != profile(spec):
+            raise ValueError("Warm worker received a different model profile")
+        check_job(next_spec)
+        spec = next_spec
+        reset_for_next_job(pipe, native_stats)
+        torch.cuda.reset_peak_memory_stats()
+        timings = StageTimings()
+        timings.synchronize = torch.cuda.synchronize
+
+
+def serve(spec, timings, pipe, local, int8, native, turbo, budget, native_stats, torch):
+    if turbo:
+        import turbo_config
     def progress(iterable=None, total=None):
         started = time.monotonic()
         count = len(iterable)
