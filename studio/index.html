@@ -255,7 +255,7 @@ textarea.bulk { min-height: 220px; }
 <body>
 <div class="app">
   <aside>
-    <div class="brand"><h1 data-i18n="app.title" data-i18n="app.title">MOSS Image Studio</h1><a class="linkbtn" href="https://buymeacoffee.com/sanketshinde" target="_blank" rel="noopener noreferrer" data-i18n-title="brand.supportTitle" title="Support MOSS Image Studio" data-i18n="brand.support">☕ Support</a><button class="privbtn" id="privBtn" data-i18n-title="brand.privateTitle" title="Private mode: temporary files only; no job logs or gallery metadata" data-i18n="brand.private">🔒 Private</button></div>
+    <div class="brand"><h1 data-i18n="app.title">MOSS Image Studio</h1><a class="linkbtn" href="https://buymeacoffee.com/sanketshinde" target="_blank" rel="noopener noreferrer" data-i18n-title="brand.supportTitle" title="Support MOSS Image Studio" data-i18n="brand.support">☕ Support</a><button class="privbtn" id="privBtn" data-i18n-title="brand.privateTitle" title="Private mode: temporary files only; no job logs or gallery metadata" data-i18n="brand.private">🔒 Private</button></div>
     <div class="controls">
       <div class="seg tabs" id="tabs">
 
@@ -267,12 +267,12 @@ textarea.bulk { min-height: 220px; }
       <div class="field hidden" id="int8ComputeRow"><div class="label" data-i18n="form.int8Compute">Experimental INT8 compute</div><select id="int8Compute"><option value="native">Native INT8 · Triton</option><option value="bf16">Compatibility · BF16 decode</option></select></div>
 
       <div class="field edit-only hidden">
-        <div class="label" data-i18n="form.images">Images <span class="val" id="refcount">0 / 3</span></div>
+        <div class="label"><span data-i18n="form.images">Images</span> <span class="val" id="refcount">0 / 3</span></div>
         <div class="refs" id="refs"></div>
-        <div class="drop" id="drop" data-i18n-title="form.dropTitle" title="You can also paste an image, or press Edit on any gallery image" data-i18n="form.dropA">Drop, paste or <u data-i18n="form.dropChoose">choose</u data-i18n="form.dropB"> an image</div>
+        <div class="drop" id="drop" data-i18n-title="form.dropTitle" title="You can also paste an image, or press Edit on any gallery image"><span data-i18n="form.dropA">Drop, paste or</span> <u data-i18n="form.dropChoose">choose</u> <span data-i18n="form.dropB">an image</span></div>
         <input type="file" id="file" accept="image/*" multiple hidden>
         <div class="assist hidden" id="assist">
-          <button class="linkbtn" id="suggestBtn" data-i18n-title="form.suggestTitle" title="Unavailable assistant looks at image #1 and suggests edits">✨ Suggest edits</button>
+          <button class="linkbtn" id="suggestBtn" data-i18n-title="form.suggestTitle" title="Unavailable assistant looks at image #1 and suggests edits" data-i18n="form.suggest">✨ Suggest edits</button>
           <button class="linkbtn" id="describeBtn" data-i18n-title="form.describeTitle" title="Unavailable assistant writes a prompt that describes image #1" data-i18n="form.describe">Describe</button>
         </div>
         <div class="chips ai hidden" id="aiChips"></div>
@@ -304,7 +304,7 @@ textarea.bulk { min-height: 220px; }
       </div>
 
       <div class="field">
-        <div class="label" data-i18n="label.size">Size <span class="val" id="sizeVal">768 × 768</span></div>
+        <div class="label"><span data-i18n="label.size">Size</span> <span class="val" id="sizeVal">768 × 768</span></div>
         <div class="aspects" id="aspects"></div>
         <div class="seg" id="bases">
           <button data-b="512">512</button><button data-b="768" class="on">768</button><button data-b="1024">1024</button><button data-b="custom" data-i18n="form.custom">Custom</button>
@@ -332,11 +332,11 @@ textarea.bulk { min-height: 220px; }
             <textarea id="negative" class="small" data-i18n-placeholder="form.optional" placeholder="Optional"></textarea>
           </div>
           <div class="field edit-only hidden" data-i18n-title="form.refMaxTitle" title="Resolution your image is read at. Higher keeps more detail and barely affects speed.">
-            <div class="label" data-i18n="form.refMax">Reference detail <span class="val" id="refMaxVal">1024 px</span></div>
+            <div class="label"><span data-i18n="form.refMax">Reference detail</span> <span class="val" id="refMaxVal">1024 px</span></div>
             <div class="seg" id="refMax"><button data-v="512">512</button><button data-v="768">768</button><button data-v="1024" class="on">1024</button></div>
           </div>
           <div class="field turbo-lock">
-            <div class="label" data-i18n="form.steps">Steps <span class="val" id="stepsVal">16</span></div>
+            <div class="label"><span data-i18n="form.steps">Steps</span> <span class="val" id="stepsVal">16</span></div>
             <input type="range" id="steps" min="4" max="50" value="16">
           </div>
           <div class="field turbo-lock" data-i18n-title="form.cfgTitle" title="How closely to follow the prompt">
@@ -344,7 +344,7 @@ textarea.bulk { min-height: 220px; }
             <input type="range" id="cfg" min="1" max="10" step="0.5" value="3">
           </div>
           <div class="field edit-only hidden turbo-lock" data-i18n-title="form.imgCfgTitle" title="How closely to stick to the original image. 0 uses the CFG value.">
-            <div class="label" data-i18n="form.imgCfg">Image guidance <span class="val" id="imgCfgVal">auto</span></div>
+            <div class="label"><span data-i18n="form.imgCfg">Image guidance</span> <span class="val" id="imgCfgVal">auto</span></div>
             <input type="range" id="imgCfg" min="0" max="10" step="0.5" value="0">
           </div>
           <div class="field">
@@ -356,12 +356,12 @@ textarea.bulk { min-height: 220px; }
             </div>
           </div>
           <div class="field">
-            <div class="label" data-i18n="form.variations">Variations <span class="val" id="batchVal">1</span></div>
+            <div class="label"><span data-i18n="form.variations">Variations</span> <span class="val" id="batchVal">1</span></div>
             <input type="range" id="batch" min="1" max="4" value="1">
           </div>
           <label class="toggle turbo-lock" data-i18n-title="form.fastTitle" title="EasyCache reuses similar steps. About 1.5 to 2x faster, slightly softer."><span data-i18n="form.fast">Fast mode</span>
             <span class="switch"><input type="checkbox" id="fast"><span></span></span></label>
-          <div class="field turbo-lock" id="fastTh"><div class="label" data-i18n="form.fastTh">Cache threshold <span class="val" id="fastThVal">0.20</span></div>
+          <div class="field turbo-lock" id="fastTh"><div class="label"><span data-i18n="form.fastTh">Cache threshold</span> <span class="val" id="fastThVal">0.20</span></div>
             <input type="range" id="fastThreshold" min="0.05" max="0.5" step="0.05" value="0.2"></div>
           <label class="toggle" data-i18n-title="form.previewTitle" title="Rough image after every step. Runs without the warm engine, so each job starts about 20 s slower."><span data-i18n="form.preview">Live preview</span>
             <span class="switch"><input type="checkbox" id="preview"><span></span></span></label>
@@ -369,7 +369,7 @@ textarea.bulk { min-height: 220px; }
             <div class="field"><div class="label" data-i18n="form.sampler">Sampler</div><select id="sampler"></select></div>
             <div class="field"><div class="label" data-i18n="form.scheduler">Scheduler</div><select id="scheduler"></select></div>
           </div>
-          <div class="field turbo-lock"><div class="label" data-i18n="form.shift">Flow shift <span class="val" id="shiftVal">auto</span></div>
+          <div class="field turbo-lock"><div class="label"><span data-i18n="form.shift">Flow shift</span> <span class="val" id="shiftVal">auto</span></div>
             <input type="range" id="shift" min="0" max="8" step="0.5" value="0"></div>
           <label class="toggle" data-i18n-title="form.notifyTitle" title="A desktop notification when a job finishes and this tab is in the background. Private jobs don't show their prompt."><span data-i18n="form.notify">Notify when done</span>
             <span class="switch"><input type="checkbox" id="notify"><span></span></span></label>
@@ -398,7 +398,7 @@ textarea.bulk { min-height: 220px; }
   <main>
     <section class="stage">
       <div class="canvas" id="canvas">
-        <div class="empty" id="empty"><h2 data-i18n="stage.ready">Ready</h2 data-i18n="stage.readyHint">Write a prompt to generate an image with MOSS.</div>
+        <div class="empty" id="empty"><h2 data-i18n="stage.ready">Ready</h2><span data-i18n="stage.readyHint">Write a prompt to generate an image with MOSS.</span></div>
         <img id="stageImg" class="hidden" alt="">
         <span class="badge hidden" id="stageBadge"></span>
       </div>
@@ -415,17 +415,17 @@ textarea.bulk { min-height: 220px; }
             <div class="stagetxt"><span id="stageName">-</span><span id="stepTxt"></span></div>
             <div class="bar"><i id="barFill"></i></div>
             <div class="stats">
-              <div data-i18n="stats.speed">Speed<b id="spi">-</b></div>
-              <div data-i18n="stats.remaining">Remaining<b id="eta">-</b></div>
-              <div data-i18n="stats.elapsed">Elapsed<b id="elapsed">-</b></div>
-              <div data-i18n="stats.engine">Engine<b id="runEngine">-</b></div>
+              <div><span data-i18n="stats.speed">Speed</span><b id="spi">-</b></div>
+              <div><span data-i18n="stats.remaining">Remaining</span><b id="eta">-</b></div>
+              <div><span data-i18n="stats.elapsed">Elapsed</span><b id="elapsed">-</b></div>
+              <div><span data-i18n="stats.engine">Engine</span><b id="runEngine">-</b></div>
             </div>
             <p id="runPrompt" style="font-size:12.5px;color:var(--muted);margin:12px 0 10px;max-height:60px;overflow:hidden"></p>
             <button class="linkbtn danger" id="cancelRun" data-i18n="run.cancel">Cancel</button>
           </div>
         </div>
         <div class="card">
-          <h3 data-i18n="queue.title">Queue <span class="qbtns"><button id="pauseQ" data-i18n="queue.pause">Pause</button><button id="clearQ" data-i18n="queue.clear">Clear finished</button></span></h3>
+          <h3><span data-i18n="queue.title">Queue</span> <span class="qbtns"><button id="pauseQ" data-i18n="queue.pause">Pause</button><button id="clearQ" data-i18n="queue.clear">Clear finished</button></span></h3>
           <div class="queue" id="queue"><div style="color:var(--faint);font-size:13px" data-i18n="queue.empty">Empty</div></div>
         </div>
       </div>
@@ -442,7 +442,7 @@ textarea.bulk { min-height: 220px; }
       <div class="galtools">
         <input type="text" id="search" data-i18n-placeholder="gallery.search" placeholder="Search prompts">
         <div class="seg" id="typeFilter"><button data-v="all" class="on" data-i18n="filter.all">All</button><button data-v="edit" data-i18n="filter.edits">Edits</button><button data-v="gen" data-i18n="filter.generated">Generated</button><button data-v="upscale" data-i18n="filter.upscaled">Upscaled</button></div>
-        <div class="seg" id="whenFilter"><button data-v="any" class="on" data-i18n="filter.anyTime">Any time</button><button data-v="today" data-i18n="filter.today">Today</button><button data-v="week">7 days</button></div>
+        <div class="seg" id="whenFilter"><button data-v="any" class="on" data-i18n="filter.anyTime">Any time</button><button data-v="today" data-i18n="filter.today">Today</button><button data-v="week" data-i18n="filter.week">7 days</button></div>
       </div>
       <div class="selbar hidden" id="selBar"><b id="selCount" data-i18n="gallery.selectedCount">0 selected</b>
         <button class="linkbtn" id="selAll" data-i18n="sel.all">Select all</button>
@@ -469,7 +469,7 @@ textarea.bulk { min-height: 220px; }
     <button class="nav" id="next" style="right:18px">›</button>
   </div>
   <div class="info">
-    <button class="linkbtn close" id="lbClose">Close ✕</button>
+    <button class="linkbtn close" id="lbClose" data-i18n="viewer.close">Close ✕</button>
     <div class="prompt" id="lbPrompt"></div>
     <div class="prompt hidden" id="lbPrompt2"></div>
     <div id="histWrap" class="hidden"><div class="sectitle" data-i18n="viewer.history">History</div><div style="height:10px"></div><div class="history" id="history"></div></div>
@@ -478,7 +478,7 @@ textarea.bulk { min-height: 220px; }
       <button class="linkbtn primary" id="lbEdit" data-i18n="viewer.edit">Edit this image</button>
       <button class="linkbtn" id="lbReuse" data-i18n="viewer.reuse">Reuse settings</button>
       <button class="linkbtn" id="lbVary" data-i18n="viewer.variation">New variation</button>
-      <div class="upsc"><button class="linkbtn" id="lbUp2" data-i18n-title="viewer.up2Title" title="ESRGAN, then scaled to 2×">Upscale 2×</button><button class="linkbtn" id="lbUp4" data-i18n-title="viewer.up4Title" title="ESRGAN 4×">Upscale 4×</button></div>
+      <div class="upsc"><button class="linkbtn" id="lbUp2" data-i18n="viewer.up2" data-i18n-title="viewer.up2Title" title="ESRGAN, then scaled to 2×">Upscale 2×</button><button class="linkbtn" id="lbUp4" data-i18n="viewer.up4" data-i18n-title="viewer.up4Title" title="ESRGAN 4×">Upscale 4×</button></div>
       <a class="linkbtn" id="lbDl" download style="text-align:center;text-decoration:none" data-i18n="viewer.download">Download</a>
       <button class="linkbtn hidden" id="lbKeep" data-i18n="viewer.keep">Keep in gallery</button>
       <button class="linkbtn danger" id="lbDel" data-i18n="viewer.delete">Delete</button>
@@ -494,7 +494,7 @@ textarea.bulk { min-height: 220px; }
 </div>
 <div class="modal" id="maskModal">
   <div class="bar2">
-    <label data-i18n="mask.brush">Brush <input type="range" id="brush" min="8" max="200" value="48"></label>
+    <label><span data-i18n="mask.brush">Brush</span> <input type="range" id="brush" min="8" max="200" value="48"></label>
     <div class="seg" id="maskTool" style="width:auto"><button data-v="paint" class="on" data-i18n="mask.paint">Paint</button><button data-v="erase" data-i18n="mask.erase">Erase</button></div>
     <span class="sep"></span>
     <button class="linkbtn" id="maskInvert" data-i18n="mask.invert">Invert</button>
@@ -579,10 +579,9 @@ function detectLang() {
   try {
     if (typeof navigator !== "object" || !navigator) return "en";
     const list = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || ""];
+    // Any zh* tag wins, so ["en-US", "zh-CN"] still gets Chinese.
     for (const tag of list) {
-      const low = String(tag).toLowerCase();
-      if (low.startsWith("zh")) return "zh";
-      if (low.startsWith("en")) return "en";
+      if (String(tag).toLowerCase().startsWith("zh")) return "zh";
     }
   } catch (e) { /* fall through to English */ }
   return "en";
@@ -634,6 +633,7 @@ const I18N = {
     "filter.generated": "Generated",
     "filter.today": "Today",
     "filter.upscaled": "Upscaled",
+    "filter.week": "7 days",
     "form.auto": "auto",
     "form.bulk": "Bulk",
     "form.bulkTitle": "Bulk: queue many prompts at once. Put an empty line between prompts.",
@@ -690,6 +690,7 @@ const I18N = {
     "form.seedTitle": "-1 picks a random seed",
     "form.shift": "Flow shift",
     "form.steps": "Steps",
+    "form.suggest": "✨ Suggest edits",
     "form.suggestTitle": "Unavailable assistant looks at image #1 and suggests edits",
     "form.turboNote": "Turbo uses four Rapid-MOSS steps. CFG, negative prompt, and ordinary sampler settings are skipped.",
     "form.turboRow": "Turbo 4-step",
@@ -702,6 +703,8 @@ const I18N = {
     "gallery.count": "{n} images",
     "gallery.countFiltered": "{shown} of {total}",
     "gallery.deleteTitle": "Delete permanently",
+    "gallery.empty": "No images yet.",
+    "gallery.noMatches": "No matches.",
     "gallery.search": "Search prompts",
     "gallery.selectMode": "Select",
     "gallery.selectedCount": "0 selected",
@@ -731,10 +734,14 @@ const I18N = {
     "meta.cfg": "CFG",
     "meta.compute": "Compute",
     "meta.fast": "Fast mode",
+    "meta.fastOn": "on ({th})",
     "meta.file": "File",
+    "meta.height": "Height",
     "meta.imgCfg": "Image CFG",
+    "meta.int8Kernel": "INT8 kernel",
     "meta.mask": "Mask",
     "meta.model": "Model",
+    "meta.nativeCalls": "Native INT8 calls",
     "meta.negative": "Negative",
     "meta.peakAllocated": "Peak allocated",
     "meta.peakReserved": "Peak reserved",
@@ -746,9 +753,16 @@ const I18N = {
     "meta.steps": "Steps",
     "meta.time": "Time",
     "meta.turbo": "Turbo",
+    "meta.turboSampler": "Rapid-MOSS four-step data-space sampler",
     "meta.weightFormat": "Weight format",
+    "meta.width": "Width",
+    "meta.yes": "yes",
     "modal.cancel": "Cancel",
     "modal.ok": "OK",
+    "notify.appName": "MOSS Image Studio",
+    "notify.doneTitle": "✓ Done · MOSS Image Studio",
+    "notify.privateReady": "Your private result is ready.",
+    "notify.upscaled": "Upscale finished",
     "placeholder.bulkEdit": "Make his hat red\n\nTurn it into a rainy night\n\nOne instruction per paragraph, with an empty line between them.",
     "placeholder.bulkGen": "A woman with freckles, soft window light\n\nStudio portrait, dark backdrop, rim light\n\nOne prompt per paragraph, with an empty line between them.",
     "placeholder.edit": "Describe the change, e.g. make his hat red",
@@ -771,6 +785,9 @@ const I18N = {
     "preset.statusReady": "Turbo ready · four steps · default preset",
     "preset.statusSetup": "Turbo setup: run download.ps1 -Model Turbo",
     "preset.turbo": "⚡ Turbo 4-step",
+    "preset.turboNeedDownload": "Run download.ps1 -Model Turbo to install the adapter",
+    "preset.turboNeedSft": "Select MOSS-Image SFT to use Turbo",
+    "preset.turboReady": "Four Rapid-MOSS steps with WeeLLM streaming",
     "preset.turboTitle": "Download the Turbo adapter to enable this SFT preset",
     "private.discard": "Discard",
     "private.discardAll": "Discard all",
@@ -808,16 +825,20 @@ const I18N = {
     "sel.download": "Download",
     "stage.adapterCleanup": "Adapter cleanup",
     "stage.adapterSetup": "Adapter setup",
+    "stage.editing": "editing this image…",
     "stage.generation": "Generation",
     "stage.imports": "Startup",
+    "stage.livePreview": "live preview · step {i}/{n}",
     "stage.modelLoad": "Model loading",
     "stage.pngSave": "PNG saving",
     "stage.privateHead": "Private",
     "stage.privateHint": "Nothing is saved unless you keep it.",
     "stage.promptEncode": "Prompt encoding",
+    "stage.reading": "reading this image…",
     "stage.ready": "Ready",
     "stage.readyHint": "Write a prompt to generate an image with MOSS.",
     "stage.sampling": "Sampling",
+    "stage.upscaling": "upscaling…",
     "stage.vaeDecode": "Image decoding",
     "stage.workerTotal": "Worker total",
     "state.cancelled": "cancelled",
@@ -876,15 +897,21 @@ const I18N = {
     "unit.seconds": "{n}s",
     "viewer.after": "after",
     "viewer.before": "before",
+    "viewer.close": "Close ✕",
     "viewer.delete": "Delete",
     "viewer.discard": "Discard",
     "viewer.download": "Download",
     "viewer.edit": "Edit this image",
     "viewer.history": "History",
     "viewer.keep": "Keep in gallery",
+    "viewer.openVersion": "Open this version",
+    "viewer.originalUpload": "Original upload",
     "viewer.reuse": "Reuse settings",
+    "viewer.up2": "Upscale 2×",
     "viewer.up2Title": "ESRGAN, then scaled to 2×",
+    "viewer.up4": "Upscale 4×",
     "viewer.up4Title": "ESRGAN 4×",
+    "viewer.upscaled": "Upscaled ×{scale} · ",
     "viewer.variation": "New variation",
   },
   zh: {
@@ -932,6 +959,7 @@ const I18N = {
     "filter.generated": "生成",
     "filter.today": "今天",
     "filter.upscaled": "放大",
+    "filter.week": "7 天",
     "form.auto": "自动",
     "form.bulk": "批量",
     "form.bulkTitle": "批量：一次排队多条提示词，每条之间空一行。",
@@ -988,6 +1016,7 @@ const I18N = {
     "form.seedTitle": "-1 表示随机种子",
     "form.shift": "流偏移",
     "form.steps": "步数",
+    "form.suggest": "✨ 建议修改",
     "form.suggestTitle": "助手（当前不可用）会看第 1 张图并给出修改建议",
     "form.turboNote": "Turbo 走四步 Rapid-MOSS，会跳过 CFG、负面提示词和普通采样器设置。",
     "form.turboRow": "Turbo 4 步",
@@ -1000,6 +1029,8 @@ const I18N = {
     "gallery.count": "{n} 张",
     "gallery.countFiltered": "{shown} / {total} 张",
     "gallery.deleteTitle": "永久删除",
+    "gallery.empty": "还没有图片。",
+    "gallery.noMatches": "没有匹配项。",
     "gallery.search": "搜索提示词",
     "gallery.selectMode": "选择",
     "gallery.selectedCount": "已选 0 张",
@@ -1029,10 +1060,14 @@ const I18N = {
     "meta.cfg": "CFG",
     "meta.compute": "计算方式",
     "meta.fast": "快速模式",
+    "meta.fastOn": "开（{th}）",
     "meta.file": "文件",
+    "meta.height": "高度",
     "meta.imgCfg": "图像 CFG",
+    "meta.int8Kernel": "INT8 内核",
     "meta.mask": "遮罩",
     "meta.model": "模型",
+    "meta.nativeCalls": "原生 INT8 调用",
     "meta.negative": "负面提示词",
     "meta.peakAllocated": "峰值已分配",
     "meta.peakReserved": "峰值已保留",
@@ -1044,9 +1079,16 @@ const I18N = {
     "meta.steps": "步数",
     "meta.time": "耗时",
     "meta.turbo": "Turbo",
+    "meta.turboSampler": "Rapid-MOSS 四步数据空间采样器",
     "meta.weightFormat": "权重格式",
+    "meta.width": "宽度",
+    "meta.yes": "是",
     "modal.cancel": "取消",
     "modal.ok": "确定",
+    "notify.appName": "MOSS Image Studio",
+    "notify.doneTitle": "✓ 完成 · MOSS Image Studio",
+    "notify.privateReady": "你的隐私结果已就绪。",
+    "notify.upscaled": "放大完成",
     "placeholder.bulkEdit": "把帽子改成红色\n\n变成雨夜\n\n每段一条指令，段与段之间空一行。",
     "placeholder.bulkGen": "一个脸上有雀斑的女生，柔和的窗光\n\n棚拍肖像，深色背景，轮廓光\n\n每段一条提示词，段与段之间空一行。",
     "placeholder.edit": "描述要改什么，例如：把帽子改成红色",
@@ -1069,6 +1111,9 @@ const I18N = {
     "preset.statusReady": "Turbo 就绪 · 四步 · 默认预设",
     "preset.statusSetup": "安装 Turbo：运行 download.ps1 -Model Turbo",
     "preset.turbo": "⚡ Turbo 4 步",
+    "preset.turboNeedDownload": "运行 download.ps1 -Model Turbo 安装适配器",
+    "preset.turboNeedSft": "选择 MOSS-Image SFT 才能使用 Turbo",
+    "preset.turboReady": "四步 Rapid-MOSS + WeeLLM 流式加载",
     "preset.turboTitle": "先下载 Turbo 适配器才能启用这个 SFT 预设",
     "private.discard": "丢弃",
     "private.discardAll": "全部丢弃",
@@ -1106,16 +1151,20 @@ const I18N = {
     "sel.download": "下载",
     "stage.adapterCleanup": "清理适配器",
     "stage.adapterSetup": "加载适配器",
+    "stage.editing": "正在编辑这张图…",
     "stage.generation": "生成",
     "stage.imports": "启动",
+    "stage.livePreview": "实时预览 · 第 {i}/{n} 步",
     "stage.modelLoad": "加载模型",
     "stage.pngSave": "保存 PNG",
     "stage.privateHead": "私密",
     "stage.privateHint": "不保存到相册，点「保存」才会留下。",
     "stage.promptEncode": "编码提示词",
+    "stage.reading": "正在读取这张图…",
     "stage.ready": "准备就绪",
     "stage.readyHint": "写一段提示词，用 MOSS 生成图像。",
     "stage.sampling": "采样",
+    "stage.upscaling": "正在放大…",
     "stage.vaeDecode": "解码图像",
     "stage.workerTotal": "进程总耗时",
     "state.cancelled": "已取消",
@@ -1174,15 +1223,21 @@ const I18N = {
     "unit.seconds": "{n} 秒",
     "viewer.after": "处理后",
     "viewer.before": "原图",
+    "viewer.close": "关闭 ✕",
     "viewer.delete": "删除",
     "viewer.discard": "丢弃",
     "viewer.download": "下载",
     "viewer.edit": "编辑这张图",
     "viewer.history": "历史",
     "viewer.keep": "保存到相册",
+    "viewer.openVersion": "打开这个版本",
+    "viewer.originalUpload": "原始上传",
     "viewer.reuse": "复用设置",
+    "viewer.up2": "放大 2×",
     "viewer.up2Title": "ESRGAN 放大后再缩放到 2×",
+    "viewer.up4": "放大 4×",
     "viewer.up4Title": "ESRGAN 4× 放大",
+    "viewer.upscaled": "已放大 {scale}× · ",
     "viewer.variation": "再来一张",
   },
 };
@@ -1219,7 +1274,7 @@ function refreshTurbo(ready = S.turboReady) {
   const button = $('#presets [data-p="turbo"]');
   button.disabled = !S.turboOk;
   $("#turbo").disabled = !S.turboOk;
-  button.title = S.turboOk ? "Four Rapid-MOSS steps with WeeLLM streaming" : ready ? "Select MOSS-Image SFT to use Turbo" : "Run download.ps1 -Model Turbo to install the adapter";
+  button.title = S.turboOk ? t("preset.turboReady") : ready ? t("preset.turboNeedSft") : t("preset.turboNeedDownload");
   $("#turboRow").classList.toggle("locked", !S.turboOk);
   $("#turboStatus").textContent = S.turboOk ? t("preset.statusReady") : ready ? t("preset.statusNeedsSft") : t("preset.statusSetup");
   if (!S.turboOk && $("#turbo").checked) applyPreset("draft");
@@ -1605,10 +1660,10 @@ async function poll() {
   pollTimer = setTimeout(poll, busy ? 1500 : 5000);
 }
 function notifyDone(j) {
-  if (document.hidden) document.title = "✓ Done · MOSS Image Studio";
+  if (document.hidden) document.title = t("notify.doneTitle");
   if (!$("#notify").checked || !document.hidden || !("Notification" in window) || Notification.permission !== "granted") return;
-  const body = j.private ? "Your private result is ready." : (j.mode === "upscale" ? "Upscale finished" : j.prompt);
-  new Notification("MOSS Image Studio", { body, silent: false });
+  const body = j.private ? t("notify.privateReady") : (j.mode === "upscale" ? t("notify.upscaled") : j.prompt);
+  new Notification(t("notify.appName"), { body, silent: false });
 }
 
 // ---------- stage ----------
@@ -1649,9 +1704,9 @@ function renderRun() {
     $("#runPrompt").textContent = (j.private ? "🔒 " : "") + (j.mode === "edit" ? "✎ " : "") + j.prompt;
     $("#cancelRun").onclick = () => cancelJob(j.id);
     const src = j.refs && j.refs.length ? `/ref/${encodeURIComponent(j.refs[0])}` : null;
-    if (j.has_preview) setStage(`/preview/${j.id}?t=${j.step}`, `live preview · step ${j.step}/${j.total || "?"}`);
-    else if (src) setStage(src, { edit: "editing this image…", upscale: "upscaling…", assist: "reading this image…" }[j.mode] || "");
-    else { setStage(null); $("#empty").innerHTML = `<h2>${escapeHtml(j.stage || "Starting")}…</h2>`; }
+    if (j.has_preview) setStage(`/preview/${j.id}?t=${j.step}`, t("stage.livePreview", { i: j.step, n: j.total || "?" }));
+    else if (src) setStage(src, { edit: t("stage.editing"), upscale: t("stage.upscaling"), assist: t("stage.reading") }[j.mode] || "");
+    else { setStage(null); $("#empty").innerHTML = `<h2>${escapeHtml(j.stage || t("run.starting"))}…</h2>`; }
   } else {
     const v = currentView(), g = findItem(v);
     if (g) setStage(urlOf(v.kind, v.name), `${v.kind === "private" ? "🔒 " : ""}${g.meta.width || ""}×${g.meta.height || ""}`, () => openLb(v.kind, v.name));
@@ -1700,7 +1755,7 @@ function renderGallery() {
       <img loading="lazy" src="${urlOf("gallery", g.name)}" alt="">${tag ? `<span class="tag">${tag}</span>` : ""}<span class="check"></span>
       <div class="acts"><span data-act="edit">${t("viewer.edit")}</span><span data-act="reuse">${t("viewer.reuse")}</span><span data-act="delete" title="${t("gallery.deleteTitle")}">✕</span></div>
     </div>`;
-  }).join("") || `<div style="color:var(--faint)">${S.gallery.length ? "No matches." : "No images yet."}</div>`;
+  }).join("") || `<div style="color:var(--faint)">${S.gallery.length ? t("gallery.noMatches") : t("gallery.empty")}</div>`;
   $("#selCount").textContent = t("sel.count", { n: S.sel.size });
   $("#selCompare").disabled = S.sel.size !== 2;
 }
@@ -1816,7 +1871,7 @@ function renderHistory(kind, name) {
   }
   const kids = all.filter(g => g.meta.refs && g.meta.refs[0] === name);
   if (!chain.length && !kids.length) return hide($("#histWrap"));
-  const thumb = (g, cls = "") => `<div class="h ${cls} ${g.kind === "source" ? "src" : ""}" data-kind="${g.kind}" data-name="${escapeHtml(g.name)}" title="${g.kind === "source" ? "Original upload" : "Open this version"}"><img src="${g.kind === "gallery" ? urlOf("gallery", g.name) : g.kind === "private" ? urlOf("private", g.name) : "/ref/" + encodeURIComponent(g.name)}" alt=""></div>`;
+  const thumb = (g, cls = "") => `<div class="h ${cls} ${g.kind === "source" ? "src" : ""}" data-kind="${g.kind}" data-name="${escapeHtml(g.name)}" title="${g.kind === "source" ? t("viewer.originalUpload") : t("viewer.openVersion")}"><img src="${g.kind === "gallery" ? urlOf("gallery", g.name) : g.kind === "private" ? urlOf("private", g.name) : "/ref/" + encodeURIComponent(g.name)}" alt=""></div>`;
   $("#history").innerHTML = chain.map(g => thumb(g)).join('<span class="arrow">›</span>') + (chain.length ? '<span class="arrow">›</span>' : "") +
     thumb({ name, kind }, "cur") + (kids.length ? '<span class="arrow">⤷</span>' + kids.map(g => thumb(g)).join("") : "");
   show($("#histWrap"));
@@ -1826,22 +1881,22 @@ function openLb(kind, name) {
   S.lb = { kind, name }; S.cmp = null; S.view = { kind, name };
   const m = g.meta, url = urlOf(kind, name);
   $("#lbImg").src = url; $("#lbDl").href = url; $("#lbDl").download = name;
-  $("#lbPrompt").textContent = (kind === "private" ? "🔒 " : "") + (m.mode === "edit" ? "✎ " : m.mode === "upscale" ? `Upscaled ×${m.scale} · ` : "") + (m.prompt || name);
+  $("#lbPrompt").textContent = (kind === "private" ? "🔒 " : "") + (m.mode === "edit" ? "✎ " : m.mode === "upscale" ? t("viewer.upscaled", { scale: m.scale }) : "") + (m.prompt || name);
   hide($("#lbPrompt2")); show($("#lbBtns"));
   const rows = [[t("meta.size"), m.width && `${m.width} × ${m.height}`], [t("meta.seed"), m.mode === "upscale" ? null : m.seed], [t("meta.steps"), m.mode === "upscale" ? null : m.steps], [t("meta.cfg"), m.mode === "upscale" ? null : m.cfg], [t("meta.imgCfg"), m.img_cfg],
-    [t("meta.sampler"), m.sampler && m.mode !== "upscale" && `${m.sampler} / ${m.scheduler || "default"}`], [t("meta.fast"), m.fast ? `on (${m.fast_threshold})` : null],
-    [t("meta.turbo"), m.turbo && m.mode !== "upscale" ? "Rapid-MOSS four-step data-space sampler" : null], [t("meta.mask"), m.mask ? "yes" : null],
-    [t("meta.negative"), m.negative], [t("meta.time"), m.seconds && fmtDur(m.seconds)], [t("meta.speed"), m.sec_per_it && m.sec_per_it + " s/step"], [t("meta.file"), kind === "private" ? null : name]];
+    [t("meta.sampler"), m.sampler && m.mode !== "upscale" && `${m.sampler} / ${m.scheduler || "default"}`], [t("meta.fast"), m.fast ? t("meta.fastOn", { th: m.fast_threshold }) : null],
+    [t("meta.turbo"), m.turbo && m.mode !== "upscale" ? t("meta.turboSampler") : null], [t("meta.mask"), m.mask ? t("meta.yes") : null],
+    [t("meta.negative"), m.negative], [t("meta.time"), m.seconds && fmtDur(m.seconds)], [t("meta.speed"), m.sec_per_it && t("run.perStep", { v: m.sec_per_it })], [t("meta.file"), kind === "private" ? null : name]];
   const stageLabels = {imports: t("stage.imports"), model_load: t("stage.modelLoad"), prompt_encode: t("stage.promptEncode"), adapter_setup: t("stage.adapterSetup"), sampling: t("stage.sampling"), adapter_cleanup: t("stage.adapterCleanup"), vae_decode: t("stage.vaeDecode"), png_save: t("stage.pngSave"), worker_total: t("stage.workerTotal"), generation: t("stage.generation")};
   if (m.prompt_cache) rows.push([t("meta.promptCache"), m.prompt_cache]);
-  if (m.native_int8_stats) rows.push(["Native INT8 calls", m.native_int8_stats.linear_calls], ["INT8 kernel", m.native_int8_stats.backend]);
+  if (m.native_int8_stats) rows.push([t("meta.nativeCalls"), m.native_int8_stats.linear_calls], [t("meta.int8Kernel"), m.native_int8_stats.backend]);
   [[t("meta.model"), m.model], [t("meta.weightFormat"), m.weight_format], [t("meta.compute"), m.compute_dtype], [t("meta.backend"), m.backend], [t("meta.peakAllocated"), m.peak_allocated_mb != null ? m.peak_allocated_mb + " MiB" : null], [t("meta.peakReserved"), m.peak_reserved_mb != null ? m.peak_reserved_mb + " MiB" : null]].forEach(row => rows.push(row));
   Object.entries(m.stage_seconds || {}).forEach(([key, seconds]) => {
     if (Number.isFinite(seconds)) rows.push([stageLabels[key] || key, seconds.toFixed(2) + " s"]);
   });
   $("#lbMeta").innerHTML = rows.filter(r => r[1] != null && r[1] !== "").map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join("");
   const hasBefore = (m.mode === "edit" || m.mode === "upscale") && m.refs && m.refs.length;
-  setBefore(hasBefore ? `/ref/${encodeURIComponent(m.refs[0])}` : null, "before", "after");
+  setBefore(hasBefore ? `/ref/${encodeURIComponent(m.refs[0])}` : null, t("viewer.before"), t("viewer.after"));
   $("#lbKeep").classList.toggle("hidden", kind !== "private");
   $("#lbDel").textContent = kind === "private" ? t("viewer.discard") : t("viewer.delete");
   $("#lbUp2").parentElement.classList.toggle("hidden", !S.upscaleOk);
@@ -1859,7 +1914,7 @@ function openCompare(a, b) {
   $("#lbPrompt").textContent = "A · " + (ga.meta.prompt || a.name);
   $("#lbPrompt2").textContent = "B · " + (gb.meta.prompt || b.name); show($("#lbPrompt2"));
   const diff = ["width", "height", "seed", "steps", "cfg", "turbo", "fast", "sampler"].filter(k => ga.meta[k] !== gb.meta[k]);
-  $("#lbMeta").innerHTML = diff.map(k => `<dt>${k}</dt><dd>A ${escapeHtml(ga.meta[k] ?? "-")} · B ${escapeHtml(gb.meta[k] ?? "-")}</dd>`).join("") || t("compare.same");
+  $("#lbMeta").innerHTML = diff.map(k => `<dt>${t("meta." + k)}</dt><dd>A ${escapeHtml(ga.meta[k] ?? "-")} · B ${escapeHtml(gb.meta[k] ?? "-")}</dd>`).join("") || t("compare.same");
   hide($("#lbBtns")); hide($("#histWrap")); hide($("#prev")); hide($("#next"));
   $("#lb").classList.add("open");
 }
@@ -1990,7 +2045,7 @@ document.addEventListener("keydown", e => {
     if (e.key === "ArrowLeft") lbStep(-1);
   }
 });
-document.addEventListener("visibilitychange", () => { if (!document.hidden && document.title.startsWith("✓")) document.title = "MOSS Image Studio"; });
+document.addEventListener("visibilitychange", () => { if (!document.hidden && document.title.startsWith("✓")) document.title = t("notify.appName"); });
 $("#drop").onclick = () => $("#file").click();
 $("#file").onchange = e => { uploadFiles(e.target.files); e.target.value = ""; };
 ["dragover", "dragenter"].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); $("#drop").classList.add("over"); }));
